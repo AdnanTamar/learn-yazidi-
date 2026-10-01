@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arena Clash</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect width=%2716%27 height=%2716%27 rx=%273%27 fill=%27%23ffb84d%27/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud" class="hidden">
+  <div class="hud-left">
+    <div class="bar hp"><div id="hp-fill" class="fill"></div><span id="hp-text"></span></div>
+    <div class="bar xp"><div id="xp-fill" class="fill"></div></div>
+    <div id="xp-text" class="small"></div>
+  </div>
+  <div class="hud-center"><div id="mode-label"></div><div id="kills" class="small"></div></div>
+  <div class="hud-right">
+    <button id="btn-daynight" class="hud-btn" title="Switch day/night (N)"></button>
+    <button id="btn-mute" class="hud-btn icon" title="Mute (M)">🔊</button>
+    <button id="btn-pause" class="hud-btn icon" title="Pause (Esc)">⏸</button>
+  </div>
+  <button id="btn-ability" class="ability" title="Use ability (Space / Right-click)">
+    <div id="ab-cd" class="cd"></div><span id="ab-icon"></span><span id="ab-name"></span>
+  </button>
+  <div id="toast"></div>
+</div>
+
+<section id="menu" class="screen">
+  <div class="panel big">
+    <h1>Arena Clash</h1>
+    <p class="sub">Pick a hero, a map and a mode. Survive.</p>
+    <h2>Mode</h2><div id="modes" class="row"></div>
+    <h2>Hero</h2><div id="chars" class="row"></div>
+    <h2>Arena</h2><div id="maps" class="row"></div>
+    <div class="foe-line">Enemies: <span id="foes"></span></div>
+    <div class="actions">
+      <button id="btn-start" class="primary">▶ Start Game</button>
+      <button id="btn-help">How to Play</button>
+    </div>
+    <div id="best" class="small"></div>
+    <div id="help" class="hidden help">
+      <b>Move</b> WASD / Arrow keys · <b>Aim</b> mouse · <b>Attack</b> hold Left-click (or J for auto-aim)<br>
+      <b>Ability</b> Space, Right-click, E or the ability button · <b>Day/Night</b> N or the top-right button<br>
+      <b>Pause</b> Esc / P · <b>Mute</b> M · Collect gold orbs for XP, ❤️ to heal. Level up to pick upgrades (1-3).<br>
+      Night: enemies hit harder &amp; faster but XP is +50%. Day: you slowly regenerate.
+    </div>
+  </div>
+</section>
+
+<section id="pause" class="screen hidden">
+  <div class="panel">
+    <h1>Paused</h1>
+    <div class="actions col">
+      <button id="btn-resume" class="primary">Resume</button>
+      <button id="btn-restart-pause">Restart</button>
+      <button id="btn-menu-pause">Main Menu</button>
+    </div>
+  </div>
+</section>
+
+<section id="levelup" class="screen hidden">
+  <div class="panel">
+    <h1>Level Up!</h1><p id="lu-level" class="sub"></p>
+    <div id="upgrade-choices" class="row"></div>
+  </div>
+</section>
+
+<section id="gameover" class="screen hidden">
+  <div class="panel">
+    <h1 id="end-title"></h1>
+    <div id="end-stats" class="stats"></div>
+    <div class="actions">
+      <button id="btn-restart" class="primary">↻ Play Again</button>
+      <button id="btn-menu">Main Menu</button>
+    </div>
+  </div>
+</section>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
