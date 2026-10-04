@@ -6,6 +6,7 @@ import { parseMoney, toInput } from './money.js';
 import { addDays, addMonths, monthOf, validYmd, ymParts, ymMake, lastOfMonth, clampDay } from './dates.js';
 import { PAYMENT_METHODS, FREQUENCIES, planFor, monthSummary, goalCurrent } from './calc.js';
 import { COLORS, ICONS } from './model.js';
+import { t } from './i18n.js';
 
 export const avatar = (cat, size) => h('div', { class: 'avatar', style: { background: cat.color + '26', color: cat.color, ...(size ? { width: size + 'px', height: size + 'px' } : {}) }, 'aria-hidden': 'true' }, cat.icon);
 
@@ -21,7 +22,7 @@ export function monthSwitcher({ compact = false } = {}) {
   const cur = curMonth();
   return h('div', { class: 'monthbar', role: 'group', 'aria-label': 'Month' },
     h('button', { class: 'icon-btn', 'aria-label': 'Previous month', onclick: () => shiftMonth(-1) }, icon('chevL')),
-    h('button', { class: 'label', 'aria-label': `${monthName(ui.ym)}. Choose month`, onclick: openMonthPicker }, monthName(ui.ym, compact ? { month: 'short', year: 'numeric' } : undefined)),
+    h('button', { class: 'label', 'aria-label': t('{month}. Choose month', { month: monthName(ui.ym) }), onclick: openMonthPicker }, monthName(ui.ym, compact ? { month: 'short', year: 'numeric' } : undefined)),
     h('button', { class: 'icon-btn', 'aria-label': 'Next month', disabled: ui.ym >= cur, onclick: () => shiftMonth(1) }, icon('chevR')));
 }
 export function openMonthPicker() {
@@ -49,8 +50,8 @@ export function openMonthPicker() {
 
 /* ───── receipts ───── */
 export async function fileToReceipt(file) {
-  if (!file.type.startsWith('image/')) throw new Error('Please choose an image file.');
-  if (file.size > 15 * 1024 * 1024) throw new Error('That image is too large (max 15 MB).');
+  if (!file.type.startsWith('image/')) throw new Error(t('Please choose an image file.'));
+  if (file.size > 15 * 1024 * 1024) throw new Error(t('That image is too large (max 15 MB).'));
   const bmp = await createImageBitmap(file);
   const scale = Math.min(1, 1280 / Math.max(bmp.width, bmp.height));
   const c = document.createElement('canvas');
@@ -76,8 +77,8 @@ export function openExpenseModal({ expense = null, preset = {} } = {}) {
   let receiptData = null, receiptRemoved = false, hadReceipt = !!expense?.hasReceipt;
   const defaultDate = (() => {
     if (expense) return expense.date;
-    const t = today();
-    return monthOf(t) === ui.ym ? t : lastOfMonth(ui.ym);
+    const td = today();
+    return monthOf(td) === ui.ym ? td : lastOfMonth(ui.ym);
   })();
 
   const amount = moneyInput({ big: true, value: expense ? toInput(expense.amount) : preset.amount ? toInput(preset.amount) : '', 'data-autofocus': '', 'aria-label': 'Amount', enterkeyhint: 'done' });
@@ -139,7 +140,7 @@ export function openExpenseModal({ expense = null, preset = {} } = {}) {
     if (!Number.isFinite(a) || a <= 0) { amountField.setError('Enter an amount greater than 0.'); ok = false; }
     else if (a > 99999999999) { amountField.setError('That amount is too large.'); ok = false; } else amountField.setError('');
     if (!validYmd(dateIn.value)) { dateField.setError('Pick a valid date.'); ok = false; } else dateField.setError('');
-    if (!catOf(catId)) { catErr.textContent = 'Choose a category.'; ok = false; }
+    if (!catOf(catId)) { catErr.textContent = t('Choose a category.'); ok = false; }
     return ok ? { amount: a } : null;
   };
   const save = async (again) => {
@@ -157,7 +158,7 @@ export function openExpenseModal({ expense = null, preset = {} } = {}) {
     } catch (e) { return toast(e.message || 'Could not save.', { kind: 'bad' }); }
     ui.lastCategory = catId; ui.lastMethod = method;
     if (monthOf(data.date) > curMonth()) { /* future-dated: stays visible on its own month */ }
-    toast(editing ? 'Expense updated.' : `Added ${money(v.amount)} to ${c.name}.`, editing ? {} : { action: 'Undo', onAction: () => store.deleteExpense(state().expenses[state().expenses.length - 1]?.id) });
+    toast(editing ? 'Expense updated.' : t('Added {amount} to {name}.', { amount: money(v.amount), name: c.name }), editing ? {} : { action: 'Undo', onAction: () => store.deleteExpense(state().expenses[state().expenses.length - 1]?.id) });
     if (again && !editing) { amount.value = ''; desc.value = ''; amount.focus(); rerender(); } else m.close();
   };
   const del = editing ? h('button', { class: 'btn danger ghost', style: { marginRight: 'auto', color: 'var(--bad)' }, onclick: async () => {
@@ -190,7 +191,7 @@ export function openIncomeModal(ym = ui.ym) {
       list.append(h('div', { class: 'card tight', style: { marginBottom: '10px' } },
         h('div', { class: 'form-row' }, h('div', { class: 'field' }, h('label', null, 'Source'), name), h('div', { class: 'field' }, h('label', null, 'Net amount'), amt)),
         h('div', { class: 'row spread' }, h('div', { class: 'field', style: { margin: 0, flex: 1 } }, h('label', null, 'Paid on day of month'), day),
-          h('button', { class: 'icon-btn danger', 'aria-label': `Remove ${r.name || 'income source'}`, onclick: () => { rows.splice(i, 1); redraw(); } }, icon('trash')))));
+          h('button', { class: 'icon-btn danger', 'aria-label': t('Remove {name}', { name: r.name || t('income source') }), onclick: () => { rows.splice(i, 1); redraw(); } }, icon('trash')))));
     });
     sum();
   };
@@ -202,8 +203,8 @@ export function openIncomeModal(ym = ui.ym) {
     list, h('button', { class: 'btn small', onclick: () => { rows.push({ id: 'src' + Math.random().toString(36).slice(2, 7), name: '', amount: 0, payDay: 1 }); redraw(); } }, icon('plus', 16), 'Add income source'),
     h('div', { class: 'row spread', style: { margin: '14px 0 6px' } }, h('span', null, 'Total monthly income'), total), err,
     h('div', { style: { marginTop: '10px' } }, scopeSel));
-  const m = modal({ title: `Income · ${monthName(ym)}`, body, footer: [h('button', { class: 'btn ghost', onclick: () => m.close() }, 'Cancel'), h('button', { class: 'btn primary', onclick: () => {
-    if (rows.some((r) => r._bad)) return (err.textContent = 'One of the amounts is not a valid number.');
+  const m = modal({ title: t('Income · {month}', { month: monthName(ym) }), body, footer: [h('button', { class: 'btn ghost', onclick: () => m.close() }, 'Cancel'), h('button', { class: 'btn primary', onclick: () => {
+    if (rows.some((r) => r._bad)) return (err.textContent = t('One of the amounts is not a valid number.'));
     const clean = rows.filter((r) => r.name.trim() || r.amount > 0).map((r) => ({ id: r.id, name: r.name.trim() || 'Income', amount: Math.max(0, r.amount || 0), payDay: r.payDay || 1 }));
     store.setIncome(ym, clean, scope);
     m.close(); toast('Income updated. Percentage budgets were recalculated.');
@@ -251,11 +252,11 @@ export async function deleteCategoryFlow(category, done) {
   if (!others.length) return toast('You need at least one category.', { kind: 'bad' });
   const used = st.expenses.filter((e) => e.categoryId === category.id).length + st.recurring.filter((r) => r.categoryId === category.id).length;
   if (!used) {
-    if (await confirmDialog({ title: `Delete “${category.name}”?`, text: 'This category has no expenses.', confirmLabel: 'Delete', danger: true })) { store.deleteCategory(category.id, others[0].id); done?.(); rerender(); }
+    if (await confirmDialog({ title: t('Delete “{name}”?', { name: category.name }), text: 'This category has no expenses.', confirmLabel: 'Delete', danger: true })) { store.deleteCategory(category.id, others[0].id); done?.(); rerender(); }
     return;
   }
   const sel = selectEl(others.map((c) => [c.id, `${c.icon} ${c.name}`]), (others.find((c) => c.name === 'Other') || others[0]).id);
-  const m = modal({ title: `Delete “${category.name}”?`, body: h('div', null, h('p', { class: 'muted', style: { marginBottom: '12px' } }, `${used} expense${used === 1 ? '' : 's'} / recurring item${used === 1 ? '' : 's'} use this category. Move them to:`), field('Move to', sel)),
+  const m = modal({ title: t('Delete “{name}”?', { name: category.name }), body: h('div', null, h('p', { class: 'muted', style: { marginBottom: '12px' } }, t('{n} expenses / recurring items use this category. Move them to:', { n: used })), field('Move to', sel)),
     footer: [h('button', { class: 'btn ghost', onclick: () => m.close() }, 'Cancel'), h('button', { class: 'btn danger', onclick: () => { store.deleteCategory(category.id, sel.value); m.close(); done?.(); rerender(); toast('Category deleted.'); } }, 'Delete category')] });
 }
 
@@ -263,9 +264,9 @@ export async function deleteCategoryFlow(category, done) {
 export function expenseItem(e, onClick) {
   const c = catOf(e.categoryId) || { icon: '❔', color: '#999', name: 'Unknown', kind: 'variable' };
   const saved = c.kind === 'savings';
-  return h('button', { class: 'item', type: 'button', onclick: onClick, 'aria-label': `${e.description || c.name}, ${money(e.amount)}, ${date(e.date)}. Edit` },
+  return h('button', { class: 'item', type: 'button', onclick: onClick, 'aria-label': t('{what}, {amount}, {date}. Edit', { what: e.description || c.name, amount: money(e.amount), date: date(e.date) }) },
     avatar(c), h('div', { class: 'grow' }, h('div', { class: 'title' }, e.description || c.name),
-      h('div', { class: 'meta' }, [c.name, e.method, e.recurringId ? '🔁 recurring' : null, e.hasReceipt ? '📎 receipt' : null].filter(Boolean).join(' · '))),
+      h('div', { class: 'meta' }, [c.name, t(e.method), e.recurringId ? t('🔁 recurring') : null, e.hasReceipt ? t('📎 receipt') : null].filter(Boolean).join(' · '))),
     h('div', { class: 'amt' }, saved ? h('span', { class: 'good' }, (e.amount < 0 ? '' : '→ ') + money(e.amount)) : money(e.amount), saved ? h('div', { class: 'meta' }, e.amount < 0 ? 'withdrawn' : 'saved') : null));
 }
 export { pct, goalCurrent };

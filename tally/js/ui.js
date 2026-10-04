@@ -1,4 +1,5 @@
 // Tiny DOM toolkit: hyperscript, icons, modal, toast, form fields. All text goes through textContent (no innerHTML with user data).
+import { t } from './i18n.js';
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 export function h(tag, props, ...children) {
@@ -13,12 +14,14 @@ export function s(tag, props, ...children) {
   append(el, children);
   return el;
 }
+const TRANSLATED_ATTRS = new Set(['aria-label', 'placeholder', 'title', 'alt']);
 function applyProps(el, props, isSvg) {
   if (!props) return;
   for (const [k, v] of Object.entries(props)) {
     if (v == null || v === false) continue;
     if (k === 'class') el.setAttribute('class', v);
     else if (k === 'style' && typeof v === 'object') { for (const [sk, sv] of Object.entries(v)) { if (sk.startsWith('--')) el.style.setProperty(sk, sv); else el.style[sk] = sv; } }
+    else if (TRANSLATED_ATTRS.has(k) && typeof v === 'string') el.setAttribute(k, t(v));
     else if (k === 'dataset') Object.assign(el.dataset, v);
     else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2).toLowerCase(), v);
     else if (k === 'value' && !isSvg) el.value = v;
@@ -29,7 +32,7 @@ function applyProps(el, props, isSvg) {
 function append(el, children) {
   for (const c of children.flat(Infinity)) {
     if (c == null || c === false) continue;
-    el.append(c instanceof Node ? c : document.createTextNode(String(c)));
+    el.append(c instanceof Node ? c : document.createTextNode(typeof c === 'string' ? t(c) : String(c)));
   }
 }
 export const clear = (el) => { while (el.firstChild) el.removeChild(el.firstChild); return el; };
@@ -68,17 +71,17 @@ const ICONS = {
   more: 'M5 12h0M12 12h0M19 12h0',
 };
 export function icon(name, size = 20) {
-  return s('svg', { viewBox: '0 0 24 24', width: size, height: size, fill: 'none', stroke: 'currentColor', 'stroke-width': 1.8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', class: 'icon' }, s('path', { d: ICONS[name] || ICONS.info }));
+  return s('svg', { viewBox: '0 0 24 24', width: size, height: size, fill: 'none', stroke: 'currentColor', 'stroke-width': 1.8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', class: 'icon' + (name === 'chevL' || name === 'chevR' ? ' flip' : '') }, s('path', { d: ICONS[name] || ICONS.info }));
 }
 
 /* ───── toast ───── */
 let toastHost;
 export function toast(message, { action, onAction, kind = 'info', timeout = 4500 } = {}) {
   if (!toastHost) { toastHost = h('div', { class: 'toasts', role: 'status', 'aria-live': 'polite' }); document.body.append(toastHost); }
-  const t = h('div', { class: 'toast ' + kind }, h('span', null, message));
-  if (action) t.append(h('button', { class: 'btn small ghost', onclick: () => { onAction?.(); t.remove(); } }, action));
-  toastHost.append(t);
-  setTimeout(() => t.remove(), timeout);
+  const el = h('div', { class: 'toast ' + kind }, h('span', null, message));
+  if (action) el.append(h('button', { class: 'btn small ghost', onclick: () => { onAction?.(); el.remove(); } }, action));
+  toastHost.append(el);
+  setTimeout(() => el.remove(), timeout);
 }
 
 /* ───── modal / sheet ───── */
@@ -148,7 +151,7 @@ export function field(label, input, { hint, error } = {}) {
   const err = h('div', { class: 'field-error', id: id + '-err', role: 'alert' }, error || '');
   input.setAttribute('aria-describedby', id + '-err' + (hint ? ' ' + id + '-hint' : ''));
   const w = h('div', { class: 'field' }, h('label', { for: id }, label), input, hint ? h('div', { class: 'hint', id: id + '-hint' }, hint) : null, err);
-  w.setError = (msg) => { err.textContent = msg || ''; input.toggleAttribute('aria-invalid', !!msg); w.classList.toggle('invalid', !!msg); };
+  w.setError = (msg) => { err.textContent = msg ? t(msg) : ''; input.toggleAttribute('aria-invalid', !!msg); w.classList.toggle('invalid', !!msg); };
   return w;
 }
 export function moneyInput({ value = '', placeholder = '0.00', big = false, ...rest } = {}) {
@@ -181,4 +184,4 @@ export function download(filename, text, type = 'text/plain') {
   document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
-export const debounce = (fn, ms = 150) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+export const debounce = (fn, ms = 150) => { let timer; return (...a) => { clearTimeout(timer); timer = setTimeout(() => fn(...a), ms); }; };

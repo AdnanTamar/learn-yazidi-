@@ -5,15 +5,16 @@ import { monthSummary, expensesIn, PAYMENT_METHODS, isLeakCandidate } from '../c
 import { expensesToCsv } from '../csv.js';
 import { monthSwitcher, openExpenseModal, expenseItem, statCard } from '../components.js';
 import { openImportModal } from '../import.js';
+import { t } from '../i18n.js';
 
 export function renderExpenses() {
   const st = cs(), ym = ui.ym;
   const s = monthSummary(st, ym);
   const f = ui.expenseFilter;
   const page = h('div', { class: 'page' });
-  page.append(h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Expenses'), h('div', { class: 'sub' }, `${plural(s.count, 'transaction', 'transactions')} in ${monthName(ym)}`)), h('div', { class: 'row wrap' }, monthSwitcher(), h('button', { class: 'btn primary', onclick: () => openExpenseModal() }, icon('plus', 18), 'Add expense'))),
+  page.append(h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Expenses'), h('div', { class: 'sub' }, t('{n} in {month}', { n: plural(s.count, 'transaction', 'transactions'), month: monthName(ym) }))), h('div', { class: 'row wrap' }, monthSwitcher(), h('button', { class: 'btn primary', onclick: () => openExpenseModal() }, icon('plus', 18), 'Add expense'))),
     h('div', { class: 'stats', style: { marginBottom: '14px' } },
-      statCard({ label: 'Spent', value: money(s.spent), sub: `${plural(s.count, 'item', 'items')}` }),
+      statCard({ label: 'Spent', value: money(s.spent), sub: plural(s.count, 'item', 'items') }),
       statCard({ label: 'Fixed', value: money(s.fixedSpent), sub: 'Rent, bills, subscriptions…' }),
       statCard({ label: 'Variable', value: money(s.variableSpent), sub: 'The part you can reduce' }),
       statCard({ label: 'Saved', value: money(s.saved), sub: 'Moved to savings' })));
@@ -45,7 +46,7 @@ export function renderExpenses() {
     clear(list);
     if (!items.length) {
       list.append(s.count === 0
-        ? emptyState({ icon: '🧾', title: `No expenses in ${monthName(ym)}`, text: isCurrent() ? 'Tap “Add expense” to log your first one. It takes a few seconds.' : 'Nothing was recorded in this month.', action: h('button', { class: 'btn primary', onclick: () => openExpenseModal() }, icon('plus', 18), 'Add expense') })
+        ? emptyState({ icon: '🧾', title: t('No expenses in {month}', { month: monthName(ym) }), text: isCurrent() ? 'Tap “Add expense” to log your first one. It takes a few seconds.' : 'Nothing was recorded in this month.', action: h('button', { class: 'btn primary', onclick: () => openExpenseModal() }, icon('plus', 18), 'Add expense') })
         : emptyState({ icon: '🔍', title: 'No matches', text: 'Try clearing the search or filters.', action: h('button', { class: 'btn', onclick: () => { q.value = ''; cat.value = ''; method.value = ''; type.value = ''; draw(); } }, 'Clear filters') }));
       return;
     }
@@ -57,7 +58,7 @@ export function renderExpenses() {
       if (e.date !== curDay) { curDay = e.date; list.append(h('div', { class: 'day-head' }, h('span', null, date(e.date, { weekday: 'long', day: 'numeric', month: 'short' })), h('span', null, totals[e.date] ? money(totals[e.date]) : ''))); box = h('div', { class: 'list' }); list.append(box); }
       box.append(expenseItem(e, () => openExpenseModal({ expense: e })));
     }
-    if (items.length > shown.length) list.append(h('div', { style: { textAlign: 'center', padding: '12px' } }, h('button', { class: 'btn', onclick: () => { ui.shown += 80; draw(); } }, `Show more (${items.length - shown.length})`)));
+    if (items.length > shown.length) list.append(h('div', { style: { textAlign: 'center', padding: '12px' } }, h('button', { class: 'btn', onclick: () => { ui.shown += 80; draw(); } }, t('Show more ({n})', { n: items.length - shown.length }))));
   };
   [q, cat, method, type].forEach((el) => el.addEventListener(el === q ? 'input' : 'change', () => { ui.shown = 80; draw(); }));
   draw();

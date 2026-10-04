@@ -4,6 +4,7 @@ import { parseCsv, detectColumns, detectDateFormat, DATE_FORMATS, buildImportRow
 import * as store from './store.js';
 import { state, money, date, rerender } from './ctx.js';
 import { monthOf } from './dates.js';
+import { t } from './i18n.js';
 
 const SKIP = '__skip__';
 const none = [['', '— none —']];
@@ -28,7 +29,7 @@ export function openImportModal() {
     const go = (text) => {
       try {
         const rows = parseCsv(text);
-        if (rows.length < 2) throw new Error('That file has no data rows.');
+        if (rows.length < 2) throw new Error(t('That file has no data rows.'));
         S.text = text; S.rows = rows;
         const header = rows[0];
         const guess = detectColumns(header);
@@ -42,21 +43,21 @@ export function openImportModal() {
         stepMap();
       } catch (e) { err.textContent = e.message || 'Could not read that file.'; }
     };
-    file.addEventListener('change', async () => { const f = file.files?.[0]; if (!f) return; if (f.size > 8 * 1024 * 1024) return (err.textContent = 'File is too large (max 8 MB).'); go(await f.text()); });
+    file.addEventListener('change', async () => { const f = file.files?.[0]; if (!f) return; if (f.size > 8 * 1024 * 1024) return (err.textContent = t('File is too large (max 8 MB).')); go(await f.text()); });
     clear(body).append(h('p', { class: 'muted', style: { marginBottom: '12px' } }, 'Export a CSV from your bank (no bank login needed) or use a file exported from Tally. Nothing leaves your device; the file is read in your browser.'), field('CSV file', file), paste, err);
-    setFoot(cancel, h('button', { class: 'btn primary', onclick: () => (paste.value.trim() ? go(paste.value) : (err.textContent = 'Choose a file or paste some CSV text.')) }, 'Next'));
+    setFoot(cancel, h('button', { class: 'btn primary', onclick: () => (paste.value.trim() ? go(paste.value) : (err.textContent = t('Choose a file or paste some CSV text.'))) }, 'Next'));
   }
 
   /* step 2: map columns */
   function stepMap() {
     const header = S.rows[0];
-    const cols = header.map((hd, i) => [String(i), S.header ? (hd.trim() || `Column ${i + 1}`) : `Column ${i + 1} (e.g. ${(S.rows[0][i] || '').slice(0, 14)})`]);
+    const cols = header.map((hd, i) => [String(i), S.header ? (hd.trim() || t('Column {n}', { n: i + 1 })) : t('Column {n} (e.g. {ex})', { n: i + 1, ex: (S.rows[0][i] || '').slice(0, 14) })]);
     const sel = (key, label, optional = true) => { const s = selectEl(optional ? [...none, ...cols] : cols, S.map[key] != null ? String(S.map[key]) : '', { onchange: () => { S.map[key] = s.value === '' ? undefined : Number(s.value); } }); return field(label, s); };
     const hdr = h('input', { type: 'checkbox', id: 'hdr', checked: S.header, onchange: (e) => { S.header = e.target.checked; stepMap(); } });
     const fmtSel = selectEl(DATE_FORMATS, S.dateFormat, { onchange: () => { S.dateFormat = fmtSel.value; } });
     const sign = segmented([['neg', 'Negative = expense'], ['pos', 'Positive = expense']], S.negExp ? 'neg' : 'pos', (v) => { S.negExp = v === 'neg'; }, 'Sign convention');
     const data = (S.header ? S.rows.slice(1) : S.rows).slice(0, 4);
-    clear(body).append(h('p', { class: 'muted', style: { marginBottom: '10px' } }, `${S.rows.length - (S.header ? 1 : 0)} rows found. Check that the columns are matched correctly.`),
+    clear(body).append(h('p', { class: 'muted', style: { marginBottom: '10px' } }, t('{n} rows found. Check that the columns are matched correctly.', { n: S.rows.length - (S.header ? 1 : 0) })),
       h('div', { class: 'switch' }, h('label', { for: 'hdr' }, 'First row contains column names'), hdr),
       h('div', { class: 'form-row' }, sel('date', 'Date', false), sel('description', 'Description')),
       h('div', { class: 'form-row' }, sel('amount', 'Amount'), sel('category', 'Category (optional)')),
@@ -77,7 +78,7 @@ export function openImportModal() {
     const skippedIncome = rows.filter((r) => r.skip === 'income').length, bad = rows.filter((r) => r.skip && r.skip !== 'income').length;
     const have = new Set(st.expenses.map((e) => `${e.date}|${e.amount}|${(e.description || '').toLowerCase()}`));
     ok.forEach((r) => { r.dup = have.has(`${r.date}|${r.amount}|${r.description.toLowerCase()}`); });
-    if (!ok.length) { clear(body).append(h('div', { class: 'banner bad' }, icon('warn'), h('div', { class: 'grow' }, h('b', null, 'No expenses found'), `Every row was skipped (${skippedIncome} income, ${bad} unreadable). Check the date format, amount column and sign convention.`))); setFoot(h('button', { class: 'btn', onclick: stepMap }, 'Back'), cancel); return; }
+    if (!ok.length) { clear(body).append(h('div', { class: 'banner bad' }, icon('warn'), h('div', { class: 'grow' }, h('b', null, 'No expenses found'), t('Every row was skipped ({income} income, {bad} unreadable). Check the date format, amount column and sign convention.', { income: skippedIncome, bad })))); setFoot(h('button', { class: 'btn', onclick: stepMap }, 'Back'), cancel); return; }
     const byCat = (name) => st.categories.find((c) => c.name.toLowerCase() === name.trim().toLowerCase());
     const byKey = (k) => st.categories.find((c) => c.key === k) || st.categories.find((c) => c.name.toLowerCase().startsWith({ food: 'food', transport: 'transport', subs: 'subscr', bills: 'bills', housing: 'hous', health: 'health', fun: 'entert', shopping: 'shop', other: 'other' }[k] || '#'));
     const fallback = byKey('other') || st.categories.find((c) => c.kind === 'variable') || st.categories[0];
@@ -96,7 +97,7 @@ export function openImportModal() {
     const upd = () => {
       let n = 0, total = 0, dups = 0;
       S.groups.forEach((g) => { if (g.cat === SKIP) return; g.rows.forEach((r) => { if (r.dup && S.skipDup) dups++; else { n++; total += r.amount; } }); });
-      summary.textContent = `${n} transactions · ${money(total)} to import${dups ? ` · ${dups} duplicates skipped` : ''}${skippedIncome ? ` · ${skippedIncome} income rows ignored` : ''}${bad ? ` · ${bad} unreadable rows ignored` : ''}`;
+      summary.textContent = [t('{n} transactions · {amount} to import', { n, amount: money(total) }), dups ? t('{n} duplicates skipped', { n: dups }) : '', skippedIncome ? t('{n} income rows ignored', { n: skippedIncome }) : '', bad ? t('{n} unreadable rows ignored', { n: bad }) : ''].filter(Boolean).join(' · ');
       importBtn.disabled = n === 0;
       importBtn.dataset.n = n;
     };
@@ -105,12 +106,12 @@ export function openImportModal() {
       const list = [];
       S.groups.forEach((g) => { if (g.cat === SKIP) return; g.rows.forEach((r) => { if (r.dup && S.skipDup) return; list.push({ date: r.date, amount: r.amount, categoryId: g.cat, description: r.description.slice(0, 80), method: r.method || 'Bank transfer' }); }); });
       store.addExpenses(list);
-      m.close(); toast(`Imported ${list.length} transactions.`);
+      m.close(); toast(t('Imported {n} transactions.', { n: list.length }));
     } }, 'Import');
     clear(body).append(h('p', { class: 'muted', style: { marginBottom: '10px' } }, 'Choose a category for each group of transactions. Pick “Skip” to leave a group out.'), summary,
       h('div', { class: 'switch' }, h('label', { for: 'dup' }, 'Skip transactions that already exist (same date, amount and description)'), dupBox),
       h('div', { class: 'table-scroll' }, h('table', { class: 'tbl', 'aria-label': 'Category mapping' }, h('thead', null, h('tr', null, h('th', null, 'Description'), h('th', { class: 'r' }, 'Count'), h('th', { class: 'r' }, 'Total'), h('th', null, 'Category'))),
-        h('tbody', null, S.groups.map((g) => { const s = selectEl(catOpts, g.cat.id || g.cat, { 'aria-label': `Category for ${g.label}`, onchange: () => { g.cat = s.value === SKIP ? SKIP : s.value; upd(); } }); g.cat = g.cat.id || g.cat; return h('tr', null, h('td', { style: { maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis' } }, g.label), h('td', { class: 'r' }, g.rows.length), h('td', { class: 'r' }, money(g.total)), h('td', null, s)); })))));
+        h('tbody', null, S.groups.map((g) => { const s = selectEl(catOpts, g.cat.id || g.cat, { 'aria-label': t('Category for {name}', { name: g.label }), onchange: () => { g.cat = s.value === SKIP ? SKIP : s.value; upd(); } }); g.cat = g.cat.id || g.cat; return h('tr', null, h('td', { style: { maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis' } }, g.label), h('td', { class: 'r' }, g.rows.length), h('td', { class: 'r' }, money(g.total)), h('td', null, s)); })))));
     upd();
     setFoot(h('button', { class: 'btn ghost', onclick: stepMap }, 'Back'), cancel, importBtn);
   }

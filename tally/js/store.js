@@ -1,8 +1,10 @@
 // Local-first persistence (IndexedDB, with localStorage fallback) + all state mutations.
-import { emptyState, buildState, demoState, sanitizeState, uid, VERSION } from './model.js';
+import { emptyState, buildState, demoState, sanitizeState, uid, VERSION, relocalizeNames } from './model.js';
 import { rollover, ensureMonth, planFor, catById, FREQUENCIES } from './calc.js';
 import { todayStr, monthOf, addDays } from './dates.js';
-import { fmt as fmtMoney } from './money.js';
+import { fmt as fmtMoney, cleanLocale } from './money.js';
+import { setLang, getLang, detectLang, effectiveLocale } from './i18n.js';
+import { t } from './i18n.js';
 
 const DB_NAME = 'tally-local';
 const LS_KEY = 'tally.state.v1';
@@ -24,11 +26,11 @@ function openDb() {
   });
 }
 const tx = (store, mode, fn) => new Promise((resolve, reject) => {
-  const t = db.transaction(store, mode);
-  const out = fn(t.objectStore(store));
-  t.oncomplete = () => resolve(out && 'result' in out ? out.result : undefined);
-  t.onerror = () => reject(t.error);
-  t.onabort = () => reject(t.error);
+  const trn = db.transaction(store, mode);
+  const out = fn(trn.objectStore(store));
+  trn.oncomplete = () => resolve(out && 'result' in out ? out.result : undefined);
+  trn.onerror = () => reject(trn.error);
+  trn.onabort = () => reject(trn.error);
 });
 
 export async function load() {
@@ -51,6 +53,7 @@ export async function load() {
     catch (err) { console.error('Stored data invalid, starting fresh', err); state = emptyState(); lastSaveError = 'Your saved data could not be read. A fresh start was created.'; }
   }
   try { navigator.storage?.persist?.(); } catch { /* best effort */ }
+  initLanguage();
   if (state.mode !== 'empty') rollover(state, todayStr(), uid);
   save();
   return { persistMode, error: lastSaveError };
@@ -91,13 +94,14 @@ export function commit(mutator, { silent = false } = {}) {
 
 /** State view for calc/insight functions (adds money formatter). Not persisted. */
 export function calcState() {
-  const { currency, locale } = state.profile;
+  const { currency } = state.profile;
+  const locale = effectiveLocale(state.profile.locale);
   return Object.assign(Object.create(null), state, { fmt: (c, compact = false) => fmtMoney(c, currency, locale, { compact }) });
 }
-export const money = (c, opts) => fmtMoney(c, state.profile.currency, state.profile.locale, opts);
+export const money = (c, opts) => fmtMoney(c, state.profile.currency, effectiveLocale(state.profile.locale), opts);
 
 /* ───────── receipts ───────── */
-export async function putReceipt(id, dataUrl) { if (db) await tx('receipts', 'readwrite', (s) => s.put(dataUrl, id)); else try { localStorage.setItem('tally.receipt.' + id, dataUrl); } catch { throw new Error('Not enough storage for this receipt.'); } }
+export async function putReceipt(id, dataUrl) { if (db) await tx('receipts', 'readwrite', (s) => s.put(dataUrl, id)); else try { localStorage.setItem('tally.receipt.' + id, dataUrl); } catch { throw new Error(t('Not enough storage for this receipt.')); } }
 export async function getReceipt(id) {
   if (db) return tx('receipts', 'readonly', (s) => s.get(id));
   return localStorage.getItem('tally.receipt.' + id);
@@ -106,18 +110,37 @@ export async function deleteReceipt(id) { if (db) await tx('receipts', 'readwrit
 export async function allReceipts() {
   if (!db) return {};
   return new Promise((resolve, reject) => {
-    const out = {}; const t = db.transaction('receipts', 'readonly'); const req = t.objectStore('receipts').openCursor();
+    const out = {}; const trn = db.transaction('receipts', 'readonly'); const req = trn.objectStore('receipts').openCursor();
     req.onsuccess = () => { const c = req.result; if (c) { out[c.key] = c.value; c.continue(); } else resolve(out); };
     req.onerror = () => reject(req.error);
   });
 }
 async function clearReceipts() { if (db) await tx('receipts', 'readwrite', (s) => s.clear()); }
 
+/* ───────── language ───────── */
+export function initLanguage() {
+  let l = state.settings?.language;
+  if (!l) { try { l = localStorage.getItem('tally.lang'); } catch { /* optional */ } }
+  setLang(l || detectLang(navigator.language));
+}
+export function setLanguage(l) {
+  setLang(l);
+  try { localStorage.setItem('tally.lang', getLang()); } catch { /* optional */ }
+  commit((s) => {
+    s.settings.language = getLang();
+    const cur = s.profile.locale || '';
+    if (getLang() === 'ar' && !cur.startsWith('ar')) s.profile.locale = 'ar-u-nu-latn';
+    if (getLang() === 'en' && cur.startsWith('ar')) { const n = cleanLocale(navigator.language); s.profile.locale = n.startsWith('ar') ? 'en' : n; }
+    if (s.mode === 'demo') Object.assign(s, demoState(todayStr()), { settings: s.settings, profile: { ...s.profile, ...demoState(todayStr()).profile, locale: s.profile.locale } });
+    else relocalizeNames(s, getLang());
+  });
+}
+
 /* ───────── lifecycle ───────── */
 export function startDemo() { commit((s) => { Object.assign(s, demoState(todayStr())); }); clearReceipts(); }
 export function finishSetup(setup, draft) {
   const next = buildState(setup, draft, todayStr());
-  next.settings = { ...next.settings, ...(state.settings || {}) };
+  next.settings = { ...next.settings, ...(state.settings || {}), language: getLang() };
   commit((s) => { Object.keys(s).forEach((k) => delete s[k]); Object.assign(s, next); });
   clearReceipts(); // demo/previous data must never mix with real data
 }

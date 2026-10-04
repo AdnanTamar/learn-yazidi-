@@ -2,6 +2,8 @@
 import { addDays, addMonths, clampDay, dayOf, monthOf, validYmd, ymd, parseYmd, monthLen } from './dates.js';
 import { rollover, fitToIncome, allocation, planIncome } from './calc.js';
 import { amountToBp, pctToAmount } from './money.js';
+import { t } from './i18n.js';
+import { AR } from './i18n-ar.js';
 
 export const VERSION = 1;
 let counter = 0;
@@ -28,7 +30,7 @@ export const SUGGESTED = [
 
 export function defaultSettings() {
   return {
-    theme: 'auto', leakThreshold: 1500, savingsRateTarget: 20,
+    theme: 'auto', language: null, leakThreshold: 1500, savingsRateTarget: 20,
     notifications: {
       enabled: true, browser: false,
       types: { budget: true, pace: true, low: true, recurring: true, savings: true, trend: true, rules: true, plan: true },
@@ -53,10 +55,10 @@ export function emptyState() {
 /** Suggest categories + budgets for a salary, honouring recurring items, a savings target and debts. */
 export function suggestBudget(setup) {
   const income = setup.income || 0;
-  const categories = SUGGESTED.map((c) => ({ ...c, id: uid(), notes: '' }));
+  const categories = SUGGESTED.map((c) => ({ ...c, name: t(c.name), id: uid(), notes: '' }));
   const debtPay = (setup.debts || []).reduce((a, d) => a + (d.payment || 0), 0);
-  if (debtPay > 0) categories.splice(4, 0, { key: 'debt', name: 'Debt payments', icon: '💳', color: '#c2410c', kind: 'fixed', essential: true, bp: 0, id: uid(), notes: '' });
-  const plan = { sources: [{ id: 'src1', name: setup.incomeName || 'Main job', amount: income, payDay: setup.payDay || 1 }], budgets: {} };
+  if (debtPay > 0) categories.splice(4, 0, { key: 'debt', name: t('Debt payments'), icon: '💳', color: '#c2410c', kind: 'fixed', essential: true, bp: 0, id: uid(), notes: '' });
+  const plan = { sources: [{ id: 'src1', name: setup.incomeName || t('Main job'), amount: income, payDay: setup.payDay || 1 }], budgets: {} };
   for (const c of categories) {
     const rec = (setup.recurring || []).filter((r) => r.categoryKey === c.key).reduce((a, r) => a + r.amount, 0);
     const def = pctToAmount(income, c.bp);
@@ -94,16 +96,28 @@ export function buildState(setup, draft, today, newId = uid) {
   }
   const debtCat = catByKey.debt;
   if (debtCat) for (const d of s.profile.debts.filter((x) => x.payment > 0)) {
-    s.recurring.push({ id: newId(), name: `${d.name} payment`, amount: d.payment, frequency: 'monthly', categoryId: debtCat.id, startDate: clampDay(cur, 1), method: 'Bank transfer', active: true, generatedThrough: null });
+    s.recurring.push({ id: newId(), name: t('{name} payment', { name: d.name }), amount: d.payment, frequency: 'monthly', categoryId: debtCat.id, startDate: clampDay(cur, 1), method: 'Bank transfer', active: true, generatedThrough: null });
   }
   rollover(s, today, newId);
   return s;
 }
 
+/** Rename untouched default categories when the language changes (user-renamed ones are left alone). */
+export function relocalizeNames(state, lang) {
+  const defaults = { debt: 'Debt payments', ...Object.fromEntries(SUGGESTED.map((c) => [c.key, c.name])) };
+  for (const c of state.categories) {
+    const en = defaults[c.key];
+    if (!en) continue;
+    const ar = AR[en];
+    if (lang === 'ar' && c.name === en) c.name = ar;
+    else if (lang === 'en' && c.name === ar) c.name = en;
+  }
+}
+
 /* ───────────── Demo data ───────────── */
 
 function mulberry32(a) {
-  return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let x = Math.imul(a ^ (a >>> 15), 1 | a); x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x; return ((x ^ (x >>> 14)) >>> 0) / 4294967296; };
 }
 
 export function demoState(today) {
@@ -111,16 +125,16 @@ export function demoState(today) {
   let n = 0;
   const id = () => 'demo' + (n++);
   const setup = {
-    currency: 'EUR', locale: 'en', income: 220000, incomeName: 'Main job', payDay: 25, savingsStart: 150000, savingsTarget: 25000,
+    currency: 'EUR', locale: 'en', income: 220000, incomeName: t('Main job'), payDay: 25, savingsStart: 150000, savingsTarget: 25000,
     debts: [], recurring: [
-      { name: 'Rent', amount: 65000, categoryKey: 'housing', day: 1 },
-      { name: 'Gym', amount: 2999, categoryKey: 'subs', day: 3 },
-      { name: 'Phone', amount: 2500, categoryKey: 'bills', day: 5 },
-      { name: 'Internet', amount: 2990, categoryKey: 'bills', day: 8 },
-      { name: 'Netflix', amount: 1399, categoryKey: 'subs', day: 12 },
-      { name: 'Spotify', amount: 1099, categoryKey: 'subs', day: 14 },
-      { name: 'Insurance', amount: 4200, categoryKey: 'bills', day: 15 },
-      { name: 'Transit pass', amount: 4900, categoryKey: 'transport', day: 2 },
+      { name: t('Rent'), amount: 65000, categoryKey: 'housing', day: 1 },
+      { name: t('Gym'), amount: 2999, categoryKey: 'subs', day: 3 },
+      { name: t('Phone'), amount: 2500, categoryKey: 'bills', day: 5 },
+      { name: t('Internet'), amount: 2990, categoryKey: 'bills', day: 8 },
+      { name: t('Netflix'), amount: 1399, categoryKey: 'subs', day: 12 },
+      { name: t('Spotify'), amount: 1099, categoryKey: 'subs', day: 14 },
+      { name: t('Insurance'), amount: 4200, categoryKey: 'bills', day: 15 },
+      { name: t('Transit pass'), amount: 4900, categoryKey: 'transport', day: 2 },
     ],
   };
   const draft = suggestBudget(setup);
@@ -139,12 +153,12 @@ export function demoState(today) {
     if (i === 3) p.sources[0].amount = 220000;
     s.months[ym] = p;
   }
-  s.profile.name = 'Demo';
+  s.profile.name = t('Demo');
   const cat = (key) => s.categories.find((c) => c.key === key).id;
   const pick = (a) => a[Math.floor(rnd() * a.length)];
   const between = (lo, hi) => Math.round((lo + rnd() * (hi - lo)) / 10) * 10;
   const methods = ['Debit card', 'Credit card', 'Cash', 'Apple Pay'];
-  const add = (date, amount, key, description, method) => { if (date <= today) s.expenses.push({ id: id(), date, amount, categoryId: cat(key), description, method: method || pick(methods) }); };
+  const add = (date, amount, key, description, method) => { if (date <= today) s.expenses.push({ id: id(), date, amount, categoryId: cat(key), description: t(description), method: method || pick(methods) }); };
   for (let i = 5; i >= 0; i--) {
     const ym = addMonths(cur, -i), len = monthLen(ym);
     for (let d = 1; d <= len; d++) {
@@ -164,15 +178,15 @@ export function demoState(today) {
     if (i === 1) add(ym + '-19', 18900, 'shopping', 'Sneakers');
     if (i === 0) add(ym + '-02', 14900, 'shopping', 'Headphones');
     const sd = clampDay(ym, 26);
-    s.expenses.push({ id: id(), date: sd, amount: 10000, categoryId: cat('savings'), description: 'iPhone fund', method: 'Bank transfer', fundId: 'g_iphone' });
-    s.expenses.push({ id: id(), date: sd, amount: 5000, categoryId: cat('savings'), description: 'Trip fund', method: 'Bank transfer', fundId: 'g_travel' });
-    s.expenses.push({ id: id(), date: sd, amount: 10000, categoryId: cat('savings'), description: 'Monthly savings', method: 'Bank transfer' });
-    s.expenses.push({ id: id(), date: sd, amount: 11000, categoryId: cat('emergency'), description: 'Emergency top-up', method: 'Bank transfer', fundId: 'emergency' });
+    s.expenses.push({ id: id(), date: sd, amount: 10000, categoryId: cat('savings'), description: t('iPhone fund'), method: 'Bank transfer', fundId: 'g_iphone' });
+    s.expenses.push({ id: id(), date: sd, amount: 5000, categoryId: cat('savings'), description: t('Trip fund'), method: 'Bank transfer', fundId: 'g_travel' });
+    s.expenses.push({ id: id(), date: sd, amount: 10000, categoryId: cat('savings'), description: t('Monthly savings'), method: 'Bank transfer' });
+    s.expenses.push({ id: id(), date: sd, amount: 11000, categoryId: cat('emergency'), description: t('Emergency top-up'), method: 'Bank transfer', fundId: 'emergency' });
   }
   s.expenses = s.expenses.filter((e) => e.date <= today);
   s.goals = [
-    { id: 'g_iphone', name: 'New iPhone', icon: '📱', target: 160000, start: 80000, deadline: addDays(today, 240), monthly: 10000, created: first },
-    { id: 'g_travel', name: 'Summer trip', icon: '✈️', target: 120000, start: 20000, deadline: addDays(today, 330), monthly: 5000, created: first },
+    { id: 'g_iphone', name: t('New iPhone'), icon: '📱', target: 160000, start: 80000, deadline: addDays(today, 240), monthly: 10000, created: first },
+    { id: 'g_travel', name: t('Summer trip'), icon: '✈️', target: 120000, start: 20000, deadline: addDays(today, 330), monthly: 5000, created: first },
   ];
   s.emergency = { start: 180000, targetMonths: 3, essentialOverride: null };
   s.rules = [
@@ -189,22 +203,22 @@ const isInt = (n) => Number.isInteger(n);
 
 /** Returns { state, warnings } or throws Error with a readable message. */
 export function sanitizeState(raw) {
-  if (!raw || typeof raw !== 'object') throw new Error('This file does not look like a Tally backup.');
+  if (!raw || typeof raw !== 'object') throw new Error(t('This file does not look like a Tally backup.'));
   const base = emptyState();
-  if (typeof raw.version !== 'number') throw new Error('Missing backup version.');
-  if (raw.version > VERSION) throw new Error('This backup was made by a newer version of Tally.');
+  if (typeof raw.version !== 'number') throw new Error(t('Missing backup version.'));
+  if (raw.version > VERSION) throw new Error(t('This backup was made by a newer version of Tally.'));
   const warnings = [];
   const s = { ...base, ...raw };
   s.profile = { ...base.profile, ...(raw.profile || {}) };
   s.settings = { ...base.settings, ...(raw.settings || {}), notifications: { ...base.settings.notifications, ...(raw.settings?.notifications || {}), types: { ...base.settings.notifications.types, ...(raw.settings?.notifications?.types || {}) } } };
   s.emergency = { ...base.emergency, ...(raw.emergency || {}) };
   for (const k of ['categories', 'expenses', 'recurring', 'goals', 'rules']) if (!Array.isArray(s[k])) throw new Error(`Backup is missing "${k}".`);
-  if (!s.template || !Array.isArray(s.template.sources) || typeof s.template.budgets !== 'object') throw new Error('Backup is missing the budget template.');
+  if (!s.template || !Array.isArray(s.template.sources) || typeof s.template.budgets !== 'object') throw new Error(t('Backup is missing the budget template.'));
   if (!s.months || typeof s.months !== 'object') s.months = {};
   const catIds = new Set(s.categories.map((c) => c.id));
   const before = s.expenses.length;
   s.expenses = s.expenses.filter((e) => e && typeof e.id === 'string' && isInt(e.amount) && validYmd(e.date) && catIds.has(e.categoryId));
-  if (s.expenses.length < before) warnings.push(`${before - s.expenses.length} invalid expenses were skipped.`);
+  if (s.expenses.length < before) warnings.push(t('{n} invalid expenses were skipped.', { n: before - s.expenses.length }));
   s.recurring = s.recurring.filter((r) => r && isInt(r.amount) && validYmd(r.startDate) && ['weekly', 'monthly', 'quarterly', 'yearly'].includes(r.frequency) && catIds.has(r.categoryId));
   s.version = VERSION;
   return { state: s, warnings };

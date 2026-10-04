@@ -5,9 +5,10 @@ import { FREQUENCIES, annualCost, monthlyCost, nextOccurrence, upcomingRecurring
 import { addDays, validYmd } from '../dates.js';
 import { parseMoney, toInput } from '../money.js';
 import { avatar, statCard } from '../components.js';
+import { t } from '../i18n.js';
 
 export function renderRecurring() {
-  const st = cs(), t = today();
+  const st = cs(), tdy = today();
   const page = h('div', { class: 'page' });
   const active = st.recurring.filter((r) => r.active);
   const monthly = active.reduce((a, r) => a + monthlyCost(r), 0), yearly = active.reduce((a, r) => a + annualCost(r), 0);
@@ -18,21 +19,21 @@ export function renderRecurring() {
     page.append(h('div', { class: 'card' }, emptyState({ icon: '🔁', title: 'No recurring expenses yet', text: 'Add things that repeat (rent, phone, Netflix, gym, insurance). Tally logs them automatically and keeps them out of your safe-to-spend money.', action: h('button', { class: 'btn primary', onclick: () => recurringModal() }, 'Add your first') })));
     return page;
   }
-  page.append(h('div', { class: 'banner', style: { marginBottom: '14px' } }, icon('recurring'), h('div', { class: 'grow' }, 'Your recurring expenses cost ', h('b', { style: { display: 'inline' } }, money(monthly)), ' per month and ', h('b', { style: { display: 'inline' } }, money(yearly)), ' per year.')),
-    h('div', { class: 'stats', style: { marginBottom: '14px' } }, statCard({ label: 'Per month', value: money(monthly) }), statCard({ label: 'Per year', value: money(yearly) }), statCard({ label: 'Fixed costs / mo', value: money(fixedM) }), statCard({ label: 'Subscriptions / mo', value: money(subsM) }), statCard({ label: 'Active items', value: active.length, sub: `${st.recurring.length - active.length} paused` })));
+  page.append(h('div', { class: 'banner', style: { marginBottom: '14px' } }, icon('recurring'), h('div', { class: 'grow' }, t('Your recurring expenses cost {m} per month and {y} per year.', { m: money(monthly), y: money(yearly) }))),
+    h('div', { class: 'stats', style: { marginBottom: '14px' } }, statCard({ label: 'Per month', value: money(monthly) }), statCard({ label: 'Per year', value: money(yearly) }), statCard({ label: 'Fixed costs / mo', value: money(fixedM) }), statCard({ label: 'Subscriptions / mo', value: money(subsM) }), statCard({ label: 'Active items', value: active.length, sub: t('{n} paused', { n: st.recurring.length - active.length }) })));
   const list = h('div', { class: 'card' });
-  [...st.recurring].sort((a, b) => (nextOccurrence(a, t) || '9').localeCompare(nextOccurrence(b, t) || '9')).forEach((r) => {
-    const c = catOf(r.categoryId); const next = r.active ? nextOccurrence(r, addDays(t, 1)) || nextOccurrence(r, t) : null;
+  [...st.recurring].sort((a, b) => (nextOccurrence(a, tdy) || '9').localeCompare(nextOccurrence(b, tdy) || '9')).forEach((r) => {
+    const c = catOf(r.categoryId); const next = r.active ? nextOccurrence(r, addDays(tdy, 1)) || nextOccurrence(r, tdy) : null;
     list.append(h('div', { class: 'item', style: { opacity: r.active ? 1 : 0.55, flexWrap: 'wrap' } }, c ? avatar(c) : null,
       h('div', { class: 'grow' }, h('div', { class: 'title' }, r.name, r.active ? null : h('span', { class: 'badge mute', style: { marginLeft: '8px' } }, 'Paused')),
-        h('div', { class: 'meta' }, `${c?.name || ''} · ${r.active ? 'Next ' + (next ? date(next, { weekday: 'short', day: 'numeric', month: 'short' }) : '—') : 'Not active'}`)),
-      h('div', { style: { textAlign: 'right' } }, h('div', { class: 'amt' }, `${money(r.amount)}/${{ weekly: 'week', monthly: 'month', quarterly: 'quarter', yearly: 'year' }[r.frequency]}`), h('div', { class: 'meta' }, `${money(annualCost(r))}/year`)),
-      h('button', { class: 'icon-btn', 'aria-label': r.active ? `Pause ${r.name}` : `Resume ${r.name}`, title: r.active ? 'Pause' : 'Resume', onclick: () => { store.toggleRecurring(r.id); } }, h('span', { style: { fontSize: '15px' } }, r.active ? '⏸' : '▶️')),
-      h('button', { class: 'icon-btn', 'aria-label': `Edit ${r.name}`, onclick: () => recurringModal(r) }, icon('edit')),
-      h('button', { class: 'icon-btn danger', 'aria-label': `Delete ${r.name}`, onclick: async () => { if (await confirmDialog({ title: `Delete “${r.name}”?`, text: 'Past payments stay in your history. Future payments will no longer be added.', confirmLabel: 'Delete', danger: true })) { store.deleteRecurring(r.id); toast('Recurring payment deleted.'); } } }, icon('trash'))));
+        h('div', { class: 'meta' }, `${c?.name || ''} · ${r.active ? t('Next {date}', { date: next ? date(next, { weekday: 'short', day: 'numeric', month: 'short' }) : '—' }) : t('Not active')}`)),
+      h('div', { style: { textAlign: 'end' } }, h('div', { class: 'amt' }, t('{amount}/{unit}', { amount: money(r.amount), unit: t({ weekly: 'week', monthly: 'month', quarterly: 'quarter', yearly: 'year' }[r.frequency]) })), h('div', { class: 'meta' }, t('{amount}/year', { amount: money(annualCost(r)) }))),
+      h('button', { class: 'icon-btn', 'aria-label': r.active ? t('Pause {name}', { name: r.name }) : t('Resume {name}', { name: r.name }), title: r.active ? 'Pause' : 'Resume', onclick: () => { store.toggleRecurring(r.id); } }, h('span', { style: { fontSize: '15px' } }, r.active ? '⏸' : '▶️')),
+      h('button', { class: 'icon-btn', 'aria-label': t('Edit {name}', { name: r.name }), onclick: () => recurringModal(r) }, icon('edit')),
+      h('button', { class: 'icon-btn danger', 'aria-label': t('Delete {name}', { name: r.name }), onclick: async () => { if (await confirmDialog({ title: t('Delete “{name}”?', { name: r.name }), text: 'Past payments stay in your history. Future payments will no longer be added.', confirmLabel: 'Delete', danger: true })) { store.deleteRecurring(r.id); toast('Recurring payment deleted.'); } } }, icon('trash'))));
   });
   page.append(list);
-  const up = upcomingRecurring(st, t, addDays(t, 30));
+  const up = upcomingRecurring(st, tdy, addDays(tdy, 30));
   page.append(h('div', { class: 'card', style: { marginTop: '14px' } }, h('div', { class: 'card-head' }, h('h2', null, 'Next 30 days')), up.length ? h('div', { class: 'list' }, up.map((u) => h('div', { class: 'item' }, h('div', { class: 'grow' }, h('div', { class: 'title' }, u.rec.name), h('div', { class: 'meta' }, date(u.date, { weekday: 'long', day: 'numeric', month: 'long' }))), h('div', { class: 'amt' }, money(u.amount))))) : h('p', { class: 'muted' }, 'Nothing due.'), up.length ? h('div', { class: 'row spread', style: { marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--line)' } }, h('span', { class: 'muted' }, 'Total due'), h('b', null, money(up.reduce((a, u) => a + u.amount, 0)))) : null));
   return page;
 }

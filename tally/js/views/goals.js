@@ -6,15 +6,16 @@ import { addMonths, validYmd } from '../dates.js';
 import { parseMoney, toInput } from '../money.js';
 import { statCard } from '../components.js';
 import { progress } from '../charts.js';
+import { t } from '../i18n.js';
 
 const GOAL_ICONS = ['🎯', '📱', '✈️', '🚗', '💻', '🏠', '🏖️', '🎓', '💍', '🎁', '🛠️', '🚲'];
 
 export function renderGoals() {
-  const st = cs(), t = today();
+  const st = cs(), tdy = today();
   const page = h('div', { class: 'page' });
-  const goals = st.goals.map((g) => goalStatus(st, g, t));
+  const goals = st.goals.map((g) => goalStatus(st, g, tdy));
   page.append(h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Goals'), h('div', { class: 'sub' }, 'Emergency fund and what you are saving for')), h('button', { class: 'btn primary', onclick: () => goalModal() }, icon('plus', 18), 'New goal')),
-    h('div', { class: 'stats', style: { marginBottom: '14px' } }, statCard({ label: 'Total savings', value: money(totalSavings(st)), sub: 'Starting balance + everything you saved' }), statCard({ label: 'Goals', value: goals.length, sub: `${goals.filter((g) => g.done).length} reached` }), statCard({ label: 'Planned monthly', value: money(st.goals.reduce((a, g) => a + (g.monthly || 0), 0)), sub: 'across all goals' })));
+    h('div', { class: 'stats', style: { marginBottom: '14px' } }, statCard({ label: 'Total savings', value: money(totalSavings(st)), sub: 'Starting balance + everything you saved' }), statCard({ label: 'Goals', value: goals.length, sub: t('{n} reached', { n: goals.filter((g) => g.done).length }) }), statCard({ label: 'Planned monthly', value: money(st.goals.reduce((a, g) => a + (g.monthly || 0), 0)), sub: 'across all goals' })));
   page.append(emergencyCard(st));
   const grid = h('div', { class: 'grid cols-2', style: { marginTop: '14px' } });
   if (!goals.length) page.append(h('div', { class: 'card', style: { marginTop: '14px' } }, emptyState({ icon: '🎯', title: 'No savings goals yet', text: 'Create a goal like “New laptop” or “Summer trip”. Tally works out how much to save each month.', action: h('button', { class: 'btn primary', onclick: () => goalModal() }, 'Create a goal') })));
@@ -27,17 +28,17 @@ function goalCard(g) {
   const { goal } = g;
   const status = g.done ? h('span', { class: 'badge good' }, '✓ Reached') : g.onTrack === true ? h('span', { class: 'badge good' }, 'On track') : g.onTrack === false ? h('span', { class: 'badge warn' }, 'Behind') : null;
   return h('div', { class: 'card' },
-    h('div', { class: 'row spread' }, h('div', { class: 'row' }, h('div', { class: 'avatar', style: { background: 'var(--accent-soft)' } }, goal.icon || '🎯'), h('div', null, h('h3', null, goal.name), h('div', { class: 'small muted' }, goal.deadline ? `By ${date(goal.deadline, { day: 'numeric', month: 'short', year: 'numeric' })}` : 'No deadline'))), status),
-    h('div', { style: { margin: '14px 0 6px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' } }, h('b', { style: { fontSize: '24px' } }, money(g.current)), h('span', { class: 'muted' }, `of ${money(goal.target)} · ${pct(g.progress)}`)),
-    progress(g.progress, { color: g.done ? 'var(--good)' : 'var(--accent)', label: `${goal.name} progress` }),
+    h('div', { class: 'row spread' }, h('div', { class: 'row' }, h('div', { class: 'avatar', style: { background: 'var(--accent-soft)' } }, goal.icon || '🎯'), h('div', null, h('h3', null, goal.name), h('div', { class: 'small muted' }, goal.deadline ? t('By {date}', { date: date(goal.deadline, { day: 'numeric', month: 'short', year: 'numeric' }) }) : 'No deadline'))), status),
+    h('div', { style: { margin: '14px 0 6px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' } }, h('b', { style: { fontSize: '24px' } }, money(g.current)), h('span', { class: 'muted' }, t('of {amount} · {p}', { amount: money(goal.target), p: pct(g.progress) }))),
+    progress(g.progress, { color: g.done ? 'var(--good)' : 'var(--accent)', label: t('{name} progress', { name: goal.name }) }),
     h('div', { class: 'kv small', style: { marginTop: '12px' } },
       h('span', { class: 'k' }, 'Still to save'), h('b', null, money(g.remaining)), h('span'),
-      goal.deadline ? [h('span', { class: 'k' }, 'Needed per month'), h('b', null, money(g.required)), h('span', { class: 'muted' }, `${plural(g.monthsLeft, 'month', 'months')} left`)] : null,
+      goal.deadline ? [h('span', { class: 'k' }, 'Needed per month'), h('b', null, money(g.required)), h('span', { class: 'muted' }, t('{n} left', { n: plural(g.monthsLeft, 'month', 'months') }))] : null,
       goal.monthly ? [h('span', { class: 'k' }, 'Planned per month'), h('b', null, money(goal.monthly)), h('span')] : null,
       g.projected ? [h('span', { class: 'k' }, 'At that pace'), h('b', null, date(g.projected, { day: 'numeric', month: 'short', year: 'numeric' })), h('span')] : null),
-    goal.deadline && !g.done && goal.monthly && goal.monthly < g.required ? h('div', { class: 'banner warn', style: { marginTop: '10px' } }, icon('warn', 18), h('div', { class: 'grow' }, `Your plan is ${money(g.required - goal.monthly)}/month short of the deadline.`)) : null,
+    goal.deadline && !g.done && goal.monthly && goal.monthly < g.required ? h('div', { class: 'banner warn', style: { marginTop: '10px' } }, icon('warn', 18), h('div', { class: 'grow' }, t('Your plan is {amount}/month short of the deadline.', { amount: money(g.required - goal.monthly) }))) : null,
     h('div', { class: 'row wrap', style: { marginTop: '14px' } }, h('button', { class: 'btn small primary', onclick: () => contributeModal(goal.id, goal.name) }, icon('plus', 16), 'Add money'), h('button', { class: 'btn small', onclick: () => contributeModal(goal.id, goal.name, true) }, 'Withdraw'), h('button', { class: 'btn small ghost', onclick: () => goalModal(goal) }, icon('edit', 16), 'Edit'),
-      h('button', { class: 'icon-btn danger', 'aria-label': `Delete ${goal.name}`, onclick: async () => { if (await confirmDialog({ title: `Delete “${goal.name}”?`, text: 'The money you saved stays in your savings history.', confirmLabel: 'Delete', danger: true })) store.deleteGoal(goal.id); } }, icon('trash'))));
+      h('button', { class: 'icon-btn danger', 'aria-label': t('Delete {name}', { name: goal.name }), onclick: async () => { if (await confirmDialog({ title: t('Delete “{name}”?', { name: goal.name }), text: 'The money you saved stays in your savings history.', confirmLabel: 'Delete', danger: true })) store.deleteGoal(goal.id); } }, icon('trash'))));
 }
 
 function emergencyCard(st) {
@@ -48,16 +49,16 @@ function emergencyCard(st) {
     h('div', { class: 'grid cols-3', style: { gap: '10px' } },
       h('div', null, h('div', { class: 'small muted' }, 'Emergency savings'), h('b', { style: { fontSize: '22px' } }, money(e.current))),
       h('div', null, h('div', { class: 'small muted' }, 'Essential monthly expenses'), h('b', { style: { fontSize: '22px' } }, money(e.essential)), h('div', { class: 'small muted' }, { budget: 'from your essential budgets', spending: 'from your essential spending', manual: 'set manually' }[e.essentialSource])),
-      h('div', null, h('div', { class: 'small muted' }, 'Emergency coverage'), h('b', { style: { fontSize: '22px' }, class: tone }, `${e.coverage} months`))),
+      h('div', null, h('div', { class: 'small muted' }, 'Emergency coverage'), h('b', { style: { fontSize: '22px' }, class: tone }, t('{n} months', { n: e.coverage })))),
     h('div', { style: { margin: '14px 0 6px' } }, progress(e.progress, { color: `var(--${tone})`, label: 'Emergency fund progress to target' })),
-    h('div', { class: 'row spread wrap small muted' }, h('span', null, `Target: ${e.targetMonths} months = ${money(e.targetAmount)}`), h('span', null, e.needed > 0 ? `${money(e.needed)} to go` : 'Target reached')),
+    h('div', { class: 'row spread wrap small muted' }, h('span', null, t('Target: {n} months = {amount}', { n: e.targetMonths, amount: money(e.targetAmount) })), h('span', null, e.needed > 0 ? t('{amount} to go', { amount: money(e.needed) }) : 'Target reached')),
     h('p', { style: { marginTop: '8px' } }, msg), h('p', { class: 'muted small' }, 'Common guidance is 3–6 months of essential expenses. Choose the target that fits your situation; this is not financial advice.'));
 }
 
 function emergencySettings() {
   const e = state().emergency, cur = emergencyStatus(cs(), curMonth());
   const tm = h('input', { class: 'input', type: 'number', min: 1, max: 24, step: 1, value: e.targetMonths || 3 });
-  const ov = moneyInput({ value: e.essentialOverride ? toInput(e.essentialOverride) : '', placeholder: `Automatic (${money(essentialMonthly(cs(), curMonth()).amount)})` });
+  const ov = moneyInput({ value: e.essentialOverride ? toInput(e.essentialOverride) : '', placeholder: t('Automatic ({amount})', { amount: money(essentialMonthly(cs(), curMonth()).amount) }) });
   const st0 = moneyInput({ value: e.start ? toInput(e.start) : '' });
   const tmF = field('Target (months of essential expenses)', tm, { hint: 'Most people aim for 3 to 6 months.' }), ovF = field('Essential monthly expenses (override)', ov, { hint: 'Leave empty to use your essential-category budgets.' }), s0F = field('Amount already in your emergency fund (before using Tally)', st0);
   const m = modal({ title: 'Emergency fund settings', body: h('div', null, tmF, ovF, s0F), footer: [h('button', { class: 'btn ghost', onclick: () => m.close() }, 'Cancel'), h('button', { class: 'btn primary', onclick: () => {
@@ -83,7 +84,7 @@ export function goalModal(goal = null) {
     const tg = parseMoney(target.value), sv = start.value.trim() ? parseMoney(start.value) : 0;
     if (Number.isFinite(tg) && tg > 0 && validYmd(deadline.value) && Number.isFinite(sv)) {
       const g = goalStatus({ ...state(), expenses: goal ? state().expenses : [] }, { id: goal?.id || '_new', target: tg, start: sv, deadline: deadline.value, monthly: 0 }, today());
-      need.hidden = false; clear(need).append(icon('info', 18), h('div', { class: 'grow' }, g.done ? 'You already have enough for this goal.' : `Save about ${money(g.required)} per month for ${plural(g.monthsLeft, 'month', 'months')} to reach it by the deadline.`));
+      need.hidden = false; clear(need).append(icon('info', 18), h('div', { class: 'grow' }, g.done ? 'You already have enough for this goal.' : t('Save about {amount} per month for {n} to reach it by the deadline.', { amount: money(g.required), n: plural(g.monthsLeft, 'month', 'months') })));
     } else need.hidden = true;
   };
   [target, start, deadline].forEach((el) => el.addEventListener('input', calc)); calc();
@@ -101,7 +102,7 @@ export function goalModal(goal = null) {
 }
 
 export function contributeModal(fundId, label, withdraw = false) {
-  const amt = moneyInput({ big: true, 'data-autofocus': '' }); const amtF = field(withdraw ? `Withdraw from ${label}` : `Add to ${label}`, amt);
+  const amt = moneyInput({ big: true, 'data-autofocus': '' }); const amtF = field(withdraw ? t('Withdraw from {name}', { name: t(label) }) : t('Add to {name}', { name: t(label) }), amt);
   const dt = h('input', { type: 'date', class: 'input', value: today() }); const dtF = field('Date', dt);
   const m = modal({ title: withdraw ? 'Withdraw money' : 'Add money', body: h('form', { onsubmit: (e) => { e.preventDefault(); go(); } }, amtF, dtF, h('p', { class: 'muted small' }, withdraw ? 'This records a withdrawal from your savings.' : 'This is recorded as money moved to savings (not as spending).'), h('button', { type: 'submit', hidden: true })),
     footer: [h('button', { class: 'btn ghost', onclick: () => m.close() }, 'Cancel'), h('button', { class: 'btn primary', onclick: go }, withdraw ? 'Withdraw' : 'Add money')] });
@@ -109,6 +110,6 @@ export function contributeModal(fundId, label, withdraw = false) {
     const a = parseMoney(amt.value); if (!Number.isFinite(a) || a <= 0) return amtF.setError('Enter an amount greater than 0.');
     if (!validYmd(dt.value)) return dtF.setError('Pick a valid date.');
     store.contribute(fundId, withdraw ? -a : a, dt.value);
-    m.close(); toast(withdraw ? `Withdrew ${money(a)}.` : `Added ${money(a)} to ${label}.`);
+    m.close(); toast(withdraw ? t('Withdrew {amount}.', { amount: money(a) }) : t('Added {amount} to {name}.', { amount: money(a), name: t(label) }));
   }
 }

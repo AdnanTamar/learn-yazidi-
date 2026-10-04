@@ -9,6 +9,7 @@ import { openImportModal } from '../import.js';
 import { CURRENCIES, LOCALES, resetWizard } from './wizard.js';
 import { uid } from '../model.js';
 import { applyTheme } from '../theme.js';
+import { t, getLang } from '../i18n.js';
 
 const switchRow = (id, label, checked, onChange, hint) => h('div', { class: 'switch' }, h('div', null, h('label', { for: id }, label), hint ? h('div', { class: 'small muted' }, hint) : null), h('input', { type: 'checkbox', id, checked, onchange: (e) => onChange(e.target.checked) }));
 
@@ -19,18 +20,18 @@ export function renderSettings() {
   const grid = h('div', { class: 'grid cols-2' }), L = h('div', { class: 'stack' }), R = h('div', { class: 'stack' });
 
   /* explore (mobile quick links) */
-  L.append(h('div', { class: 'card' }, h('div', { class: 'card-head' }, h('h2', null, 'Explore')), h('div', { class: 'list' }, [['recurring', 'Recurring expenses', 'Rent, subscriptions, annual cost'], ['insights', 'Insights', 'Health score, alerts, money leaks'], ['planner', 'Planner', 'Can I afford it? What-if simulator'], ['history', 'History & annual overview', 'Month by month and the whole year']].map(([r, t, s]) => h('button', { class: 'item', onclick: () => go(r) }, icon(r, 20), h('div', { class: 'grow' }, h('div', { class: 'title' }, t), h('div', { class: 'meta' }, s)), icon('chevR', 18))))));
+  L.append(h('div', { class: 'card' }, h('div', { class: 'card-head' }, h('h2', null, 'Explore')), h('div', { class: 'list' }, [['recurring', 'Recurring expenses', 'Rent, subscriptions, annual cost'], ['insights', 'Insights', 'Health score, alerts, money leaks'], ['planner', 'Planner', 'Can I afford it? What-if simulator'], ['history', 'History & annual overview', 'Month by month and the whole year']].map(([r, ti, s]) => h('button', { class: 'item', onclick: () => go(r) }, icon(r, 20), h('div', { class: 'grow' }, h('div', { class: 'title' }, ti), h('div', { class: 'meta' }, s)), icon('chevR', 18))))));
 
   /* profile */
   const name = h('input', { class: 'input', value: st.profile.name || '', maxlength: 30, placeholder: 'Optional', onchange: () => store.setProfile({ name: name.value.trim() }) });
   const cur = selectEl(CURRENCIES, st.profile.currency, { onchange: () => store.setProfile({ currency: cur.value }) });
   const loc = selectEl(LOCALES, LOCALES.some(([v]) => v === st.profile.locale) ? st.profile.locale : '', { onchange: () => store.setProfile({ locale: loc.value || cleanLocale(navigator.language) }) });
-  L.append(h('div', { class: 'card' }, h('div', { class: 'card-head' }, h('h2', null, 'Profile & format')), field('Name', name), h('div', { class: 'form-row' }, field('Currency', cur, { hint: 'Changing it only changes how amounts are displayed.' }), field('Number & date format', loc))));
+  L.append(h('div', { class: 'card' }, h('div', { class: 'card-head' }, h('h2', null, 'Profile & format')), h('div', { class: 'field' }, h('label', null, 'Language'), segmented([['en', 'English'], ['ar', 'العربية']], getLang(), (v) => { store.setLanguage(v); }, 'Language')), field('Name', name), h('div', { class: 'form-row' }, field('Currency', cur, { hint: 'Changing it only changes how amounts are displayed.' }), field('Number & date format', loc))));
 
   /* income */
   const plan = planFor(st, curMonth());
   L.append(h('div', { class: 'card' }, h('div', { class: 'card-head' }, h('h2', null, 'Income'), h('button', { class: 'btn small', onclick: () => openIncomeModal(curMonth()) }, icon('edit', 16), 'Edit')),
-    plan.sources.length ? h('div', { class: 'list' }, plan.sources.map((x) => h('div', { class: 'item' }, h('div', { class: 'grow' }, h('div', { class: 'title' }, x.name), h('div', { class: 'meta' }, `Paid on day ${x.payDay}`)), h('div', { class: 'amt' }, money(x.amount))))) : h('p', { class: 'muted' }, 'No income yet.'),
+    plan.sources.length ? h('div', { class: 'list' }, plan.sources.map((x) => h('div', { class: 'item' }, h('div', { class: 'grow' }, h('div', { class: 'title' }, x.name), h('div', { class: 'meta' }, t('Paid on day {n}', { n: x.payDay }))), h('div', { class: 'amt' }, money(x.amount))))) : h('p', { class: 'muted' }, 'No income yet.'),
     h('div', { class: 'row spread', style: { marginTop: '10px' } }, h('span', { class: 'muted' }, 'Total monthly income'), h('b', null, money(planIncome(plan)))),
     h('p', { class: 'muted small', style: { marginTop: '8px' } }, 'Had a different salary this month? Edit it and choose “This month only”. Earlier months are never rewritten.')));
 
@@ -41,7 +42,7 @@ export function renderSettings() {
   const leak = moneyInput({ value: toInput(st.settings.leakThreshold) }); const leakF = field('“Small purchase” limit (money leaks)', leak, { hint: 'Everyday purchases up to this amount count as small purchases.' });
   leak.addEventListener('change', () => { const v = parseMoney(leak.value); if (!Number.isFinite(v) || v < 100) return leakF.setError('Enter at least 1.00'); leakF.setError(''); store.setSettings({ leakThreshold: v }); });
   const debtsList = h('div', { class: 'list' });
-  const drawDebts = () => { clear(debtsList); const d = state().profile.debts; if (!d.length) debtsList.append(h('p', { class: 'muted small' }, 'No debts recorded.')); d.forEach((x) => debtsList.append(h('div', { class: 'item' }, h('div', { class: 'grow' }, h('div', { class: 'title' }, x.name), h('div', { class: 'meta' }, x.payment ? `${money(x.payment)}/month` : 'No monthly payment')), h('div', { class: 'amt' }, money(x.balance))))); };
+  const drawDebts = () => { clear(debtsList); const d = state().profile.debts; if (!d.length) debtsList.append(h('p', { class: 'muted small' }, 'No debts recorded.')); d.forEach((x) => debtsList.append(h('div', { class: 'item' }, h('div', { class: 'grow' }, h('div', { class: 'title' }, x.name), h('div', { class: 'meta' }, x.payment ? t('{amount}/month', { amount: money(x.payment) }) : 'No monthly payment')), h('div', { class: 'amt' }, money(x.balance))))); };
   drawDebts();
   L.append(h('div', { class: 'card' }, h('div', { class: 'card-head' }, h('h2', null, 'Savings & debts'), h('button', { class: 'btn small', onclick: debtsModal }, icon('edit', 16), 'Edit debts')), savF, field('Savings-rate goal (%)', rate, { hint: 'Used for the health score and savings alerts.' }), leakF, h('h3', { style: { fontSize: '14px', margin: '8px 0' } }, 'Debts'), debtsList));
 
@@ -78,7 +79,7 @@ export function renderSettings() {
 
   /* privacy */
   const mode = store.getPersistMode();
-  R.append(h('div', { class: 'card' }, h('div', { class: 'privacy-card' }, icon('lock', 22), h('div', null, h('h2', { style: { fontSize: '16px', marginBottom: '6px' } }, 'Privacy'), h('p', null, 'Your financial data stays on this device unless you choose to export or sync it.'), h('p', { class: 'muted small', style: { marginTop: '6px' } }, `Stored in: ${{ indexeddb: 'this browser (IndexedDB)', localstorage: 'this browser (localStorage fallback)', memory: 'memory only: data will be lost when you close this tab' }[mode]}. No accounts, no analytics, no servers. Clearing site data in your browser erases it, so keep a JSON backup.`)))));
+  R.append(h('div', { class: 'card' }, h('div', { class: 'privacy-card' }, icon('lock', 22), h('div', null, h('h2', { style: { fontSize: '16px', marginBottom: '6px' } }, 'Privacy'), h('p', null, 'Your financial data stays on this device unless you choose to export or sync it.'), h('p', { class: 'muted small', style: { marginTop: '6px' } }, t('Stored in: {where}. No accounts, no analytics, no servers. Clearing site data in your browser erases it, so keep a JSON backup.', { where: t({ indexeddb: 'this browser (IndexedDB)', localstorage: 'this browser (localStorage fallback)', memory: 'memory only: data will be lost when you close this tab' }[mode]) }))))));
 
   /* danger */
   R.append(h('div', { class: 'card' }, h('div', { class: 'card-head' }, h('h2', null, 'Reset')), h('p', { class: 'muted small', style: { marginBottom: '10px' } }, 'Erase everything on this device and start over with the setup.'),

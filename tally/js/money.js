@@ -1,9 +1,14 @@
 // Money is stored as integer minor units (cents). Never floats.
 
 /** Parse user input like "1,234.56", "12,5", "€ 12", "-3.20" into integer cents. NaN if invalid. */
+/** Arabic-Indic / Persian digits and Arabic separators -> ASCII. */
+export function normalizeDigits(str) {
+  return String(str ?? '').replace(/[\u0660-\u0669]/g, (d) => d.charCodeAt(0) - 0x660).replace(/[\u06F0-\u06F9]/g, (d) => d.charCodeAt(0) - 0x6f0).replace(/\u066B/g, '.').replace(/\u066C/g, ',').replace(/\u060C/g, ',');
+}
+
 export function parseMoney(input) {
   if (typeof input === 'number') return Number.isFinite(input) ? Math.round(input * 100) : NaN;
-  let s = String(input ?? '').trim().replace(/[^\d.,\-−]/g, '').replace('−', '-');
+  let s = normalizeDigits(input).trim().replace(/[^\d.,\-−]/g, '').replace('−', '-');
   if (!s || s === '-') return NaN;
   const neg = s.startsWith('-');
   s = s.replace(/-/g, '');
@@ -31,7 +36,7 @@ export function parseMoney(input) {
 
 /** Percent (e.g. "12.5") -> basis points (1250). NaN if invalid. */
 export function parsePercent(input) {
-  const s = String(input ?? '').trim().replace('%', '').replace(',', '.');
+  const s = normalizeDigits(input).trim().replace('%', '').replace('\u066A', '').replace(',', '.');
   if (s === '' || !/^-?\d*\.?\d*$/.test(s)) return NaN;
   const n = Number(s);
   return Number.isFinite(n) ? Math.round(n * 100) : NaN;

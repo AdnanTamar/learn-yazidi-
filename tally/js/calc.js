@@ -1,5 +1,6 @@
 // Pure calculation engine. No DOM, no storage. All money in integer cents.
 import { pctToAmount, amountToBp, roundDiv, pct1 } from './money.js';
+import { t, plural } from './i18n.js';
 import {
   addDays, addMonths, clampDay, daysInMonth, diffDays, dow, dayOf, firstOfMonth, lastOfMonth, monthDiff, monthLen,
   monthOf, monthRange, nextPayday, parseYmd, ymd, ymParts, toDays, fromDays,
@@ -369,10 +370,10 @@ export function ruleText(state, rule, fmtMoney) {
   const a = fmtMoney(rule.amount);
   const c = catById(state, rule.categoryId)?.name || 'category';
   switch (rule.type) {
-    case 'maxCategory': return `Never spend more than ${a}/month on ${c}.`;
-    case 'maxTotal': return `Never spend more than ${a}/month in total.`;
-    case 'minSavings': return `Always save at least ${a} each month.`;
-    case 'minBalance': return `Keep at least ${a} untouched in savings.`;
+    case 'maxCategory': return t('Never spend more than {a}/month on {c}.', { a, c });
+    case 'maxTotal': return t('Never spend more than {a}/month in total.', { a });
+    case 'minSavings': return t('Always save at least {a} each month.', { a });
+    case 'minBalance': return t('Keep at least {a} untouched in savings.', { a });
     default: return 'Rule';
   }
 }
@@ -402,7 +403,7 @@ export function evaluateRules(state, ym) {
 
 /* ───────────────────────── Financial health ───────────────────────── */
 
-export const healthLabel = (n) => (n >= 80 ? 'Excellent' : n >= 65 ? 'Good' : n >= 50 ? 'Fair' : n >= 35 ? 'Needs attention' : 'At risk');
+export const healthLabel = (n) => t(n >= 80 ? 'Excellent' : n >= 65 ? 'Good' : n >= 50 ? 'Fair' : n >= 35 ? 'Needs attention' : 'At risk');
 
 export function financialHealth(state, today) {
   const ym = monthOf(today);
@@ -412,41 +413,41 @@ export function financialHealth(state, today) {
   const add = (key, label, weight, score, note) => factors.push({ key, label, weight, score: score == null ? null : Math.round(clamp(score, 0, 100)), note });
 
   const targetRate = state.settings.savingsRateTarget || 20;
-  add('savings', 'Savings', 20, s.income ? (Math.max(0, s.savingsRate) / targetRate) * 100 : null,
-    s.income ? `${s.savingsRate}% saved vs a ${targetRate}% goal` : 'Add income to score this');
+  add('savings', t('Savings'), 20, s.income ? (Math.max(0, s.savingsRate) / targetRate) * 100 : null,
+    s.income ? t('{p}% saved vs a {g}% goal', { p: s.savingsRate, g: targetRate }) : t('Add income to score this'));
 
   const nonSav = s.cats.filter((c) => c.cat.kind !== 'savings');
   const totalBudget = sum(nonSav, (c) => c.budget);
   const overRatio = totalBudget ? s.overspend / totalBudget : 0;
   const unbudgetedSpend = sum(nonSav.filter((c) => c.budget === 0), (c) => c.spent);
-  add('budget', 'Budget control', 20, totalBudget ? 100 * (1 - Math.min(1, (s.overspend + unbudgetedSpend * 0) / totalBudget * 3)) : null,
-    s.overspend ? `${Math.round(overRatio * 1000) / 10}% over budget in total` : 'Within budget');
+  add('budget', t('Budget control'), 20, totalBudget ? 100 * (1 - Math.min(1, (s.overspend + unbudgetedSpend * 0) / totalBudget * 3)) : null,
+    s.overspend ? t('{p}% over budget in total', { p: Math.round(overRatio * 1000) / 10 }) : t('Within budget'));
 
-  add('emergency', 'Emergency fund', 20, em.essential ? (em.coverage / em.targetMonths) * 100 : null, `${em.coverage} of ${em.targetMonths} months covered`);
+  add('emergency', t('Emergency fund'), 20, em.essential ? (em.coverage / em.targetMonths) * 100 : null, t('{a} of {b} months covered', { a: em.coverage, b: em.targetMonths }));
 
   const debt = sum(state.profile.debts || [], (d) => d.balance);
   const pay = sum(state.profile.debts || [], (d) => d.payment || 0);
   const annualIncome = s.income * 12;
   const debtScore = debt === 0 ? 100 : annualIncome ? 100 - (debt / annualIncome) * 200 - (s.income ? (pay / s.income) * 100 : 0) : null;
-  add('debt', 'Debt level', 10, debtScore, debt ? 'Debt balance compared with yearly income' : 'No debt recorded');
+  add('debt', t('Debt level'), 10, debtScore, debt ? t('Debt balance compared with yearly income') : t('No debt recorded'));
 
   const recMonthly = sum(state.recurring.filter((r) => r.active), monthlyCost);
   const recShare = s.income ? recMonthly / s.income : null;
-  add('recurring', 'Recurring costs', 10, recShare == null ? null : 100 - ((recShare - 0.3) / 0.3) * 100,
-    recShare == null ? 'Add income to score this' : `${Math.round(recShare * 100)}% of income is committed`);
+  add('recurring', t('Recurring costs'), 10, recShare == null ? null : 100 - ((recShare - 0.3) / 0.3) * 100,
+    recShare == null ? t('Add income to score this') : t('{p}% of income is committed', { p: Math.round(recShare * 100) }));
 
-  add('overspending', 'Overspending', 10, s.income ? 100 - ((s.spentPct - 80) / 20) * 100 : null, s.income ? `${s.spentPct}% of income spent` : 'Add income to score this');
+  add('overspending', t('Overspending'), 10, s.income ? 100 - ((s.spentPct - 80) / 20) * 100 : null, s.income ? t('{p}% of income spent', { p: s.spentPct }) : t('Add income to score this'));
 
   const hist = monthRange(addMonths(ym, -5), ym).filter((m) => state.months[m]).map((m) => planIncome(state.months[m])).filter((n) => n > 0);
-  let stab = null, stabNote = 'Needs at least 2 months of history';
+  let stab = null, stabNote = t('Needs at least 2 months of history');
   if (hist.length >= 2) {
     const mean = sum(hist) / hist.length;
     const sd = Math.sqrt(sum(hist, (x) => (x - mean) ** 2) / hist.length);
     const cv = mean ? sd / mean : 0;
     stab = 100 - cv * 400;
-    stabNote = cv < 0.02 ? 'Income is steady' : `Income varies by about ${Math.round(cv * 100)}%`;
+    stabNote = cv < 0.02 ? t('Income is steady') : t('Income varies by about {p}%', { p: Math.round(cv * 100) });
   }
-  add('stability', 'Income stability', 10, stab, stabNote);
+  add('stability', t('Income stability'), 10, stab, stabNote);
 
   const used = factors.filter((f) => f.score != null);
   const w = sum(used, (f) => f.weight);
@@ -468,7 +469,7 @@ export function insights(state, today, ym = monthOf(today)) {
   const nonSav = s.cats.filter((c) => c.cat.kind !== 'savings');
   if (s.largestCat) {
     const share = s.income ? Math.round((s.largestCat.spent / s.income) * 100) : null;
-    push('top', 'info', s.largestCat.cat.icon, 'Highest spending', `${s.largestCat.cat.name} is your biggest category at ${money(s.largestCat.spent)}${share != null ? ` (${share}% of your income)` : ''}.`);
+    push('top', 'info', s.largestCat.cat.icon, 'Highest spending', t('{name} is your biggest category at {amount}.', { name: s.largestCat.cat.name, amount: money(s.largestCat.spent) }) + (share != null ? ' ' + t('({p}% of your income)', { p: share }) : ''));
   }
 
   const prev = addMonths(ym, -1);
@@ -479,13 +480,13 @@ export function insights(state, today, ym = monthOf(today)) {
     const deltas = nonSav.map((c) => ({ c, d: (curByCat[c.cat.id] || 0) - (prevByCat[c.cat.id] || 0), p: prevByCat[c.cat.id] || 0 }))
       .sort((a, b) => b.d - a.d);
     const up = deltas[0];
-    if (up && up.d >= 1000) push('grow', 'warn', '📈', 'Fastest-growing', `You spent ${money(up.d)} more on ${up.c.cat.name.toLowerCase()} than ${isCur ? 'at this point' : 'in'} last month.`);
+    if (up && up.d >= 1000) push('grow', 'warn', '📈', t('Fastest-growing'), t(isCur ? 'You spent {amount} more on {name} than at this point last month.' : 'You spent {amount} more on {name} than in last month.', { amount: money(up.d), name: up.c.cat.name.toLowerCase() }));
     const down = deltas[deltas.length - 1];
-    if (down && down.d <= -1000) push('shrink', 'good', '📉', 'Spending down', `${down.c.cat.name} is ${money(-down.d)} lower than ${isCur ? 'at this point' : 'in'} last month.`);
+    if (down && down.d <= -1000) push('shrink', 'good', '📉', t('Spending down'), t(isCur ? '{name} is {amount} lower than at this point last month.' : '{name} is {amount} lower than in last month.', { name: down.c.cat.name, amount: money(-down.d) }));
   }
 
   for (const c of nonSav.filter((c) => c.over && c.budget > 0).sort((a, b) => b.overBy - a.overBy)) {
-    push('over-' + c.cat.id, 'bad', '⚠️', `${c.cat.name} over budget`, `${c.cat.name} is ${money(c.overBy)} over budget (${money(c.spent)} of ${money(c.budget)}).`);
+    push('over-' + c.cat.id, 'bad', '⚠️', t('{name} over budget', { name: c.cat.name }), t('{name} is {amount} over budget ({a} of {b}).', { name: c.cat.name, amount: money(c.overBy), a: money(c.spent), b: money(c.budget) }));
   }
 
   // Unusual expenses: far above that category's median
@@ -499,24 +500,24 @@ export function insights(state, today, ym = monthOf(today)) {
     if (e.amount >= med * 3 && e.amount >= 2000) unusual.push({ e, med });
   }
   unusual.sort((a, b) => b.e.amount - a.e.amount);
-  if (unusual[0]) push('unusual', 'warn', '🔎', 'Unusual expense', `${unusual[0].e.description || catById(state, unusual[0].e.categoryId).name} (${money(unusual[0].e.amount)}) is much bigger than your usual ${catById(state, unusual[0].e.categoryId).name.toLowerCase()} purchase (~${money(unusual[0].med)}).`);
+  if (unusual[0]) push('unusual', 'warn', '🔎', t('Unusual expense'), t('{what} ({amount}) is much bigger than your usual {cat} purchase (~{usual}).', { what: unusual[0].e.description || catById(state, unusual[0].e.categoryId).name, amount: money(unusual[0].e.amount), cat: catById(state, unusual[0].e.categoryId).name.toLowerCase(), usual: money(unusual[0].med) }));
 
   const leaks = moneyLeaks(state, ym);
-  if (leaks.count >= 3) push('leaks', 'warn', '💧', 'Small purchases add up', `You spent ${money(leaks.total)} on small purchases ${leaks.count} times. That is about ${money(leaks.annual)} a year.`);
+  if (leaks.count >= 3) push('leaks', 'warn', '💧', t('Small purchases add up'), t('You spent {amount} on small purchases {n} times. That is about {annual} a year.', { amount: money(leaks.total), n: leaks.count, annual: money(leaks.annual) }));
 
   const recs = state.recurring.filter((r) => r.active);
   if (recs.length) {
     const m = sum(recs, monthlyCost);
-    push('recurring', 'info', '🔁', 'Recurring expenses', `${recs.length} recurring payments cost ${money(m)}/month (${money(m * 12)}/year)${s.income ? ` - ${Math.round((m / s.income) * 100)}% of income` : ''}.`);
+    push('recurring', 'info', '🔁', t('Recurring expenses'), t('{n} recurring payments cost {m}/month ({y}/year)', { n: recs.length, m: money(m), y: money(m * 12) }) + (s.income ? ' - ' + t('{p}% of income', { p: Math.round((m / s.income) * 100) }) : '') + '.');
     const subs = recs.filter((r) => catById(state, r.categoryId)?.sub);
-    if (subs.length) push('subs', 'info', '📺', 'Subscriptions', `Your subscriptions cost ${money(sum(subs, monthlyCost))}/month.`);
+    if (subs.length) push('subs', 'info', '📺', t('Subscriptions'), t('Your subscriptions cost {amount}/month.', { amount: money(sum(subs, monthlyCost)) }));
   }
 
   const spendList = expensesIn(state, ym).filter((e) => !e.recurringId && catById(state, e.categoryId)?.kind === 'variable');
   const wkEnd = sum(spendList.filter((e) => [0, 6].includes(dow(e.date))), (e) => e.amount);
   if (spendList.length >= 6) {
     const share = Math.round((wkEnd / sum(spendList, (e) => e.amount)) * 100);
-    if (share >= 36) push('weekend', 'info', '🎉', 'Weekend spending', `${share}% of your spending happens on weekends (2 of 7 days).`);
+    if (share >= 36) push('weekend', 'info', '🎉', t('Weekend spending'), t('{p}% of your spending happens on weekends (2 of 7 days).', { p: share }));
   }
 
   const byDow = new Array(7).fill(0), cntDow = new Array(7).fill(0);
@@ -524,13 +525,13 @@ export function insights(state, today, ym = monthOf(today)) {
   days.slice(0, day).forEach((v, i) => { const d = dow(ym + '-' + String(i + 1).padStart(2, '0')); byDow[d] += v; cntDow[d]++; });
   const avgDow = byDow.map((v, i) => (cntDow[i] ? v / cntDow[i] : 0));
   const maxI = avgDow.indexOf(Math.max(...avgDow));
-  if (Math.max(...avgDow) > 0 && spendList.length >= 6) push('dow', 'info', '📅', 'Daily pattern', `${['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'][maxI]} are your most expensive day (about ${money(Math.round(avgDow[maxI]))} on average).`);
+  if (Math.max(...avgDow) > 0 && spendList.length >= 6) push('dow', 'info', '📅', t('Daily pattern'), t('{day} are your most expensive day (about {amount} on average).', { day: t(['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'][maxI]), amount: money(Math.round(avgDow[maxI])) }));
 
   const trend = monthRange(addMonths(ym, -2), ym).map((m) => ({ m, v: monthSummary(state, m) })).filter((x) => x.v.count > 0);
   if (trend.length === 3 && !isCur) {
-    const [a, b, c] = trend.map((t) => t.v.spent);
-    if (a < b && b < c) push('trend', 'warn', '📈', 'Monthly trend', `Spending has risen three months in a row (${money(a)} → ${money(c)}).`);
-    else if (a > b && b > c) push('trend', 'good', '📉', 'Monthly trend', `Spending has fallen three months in a row (${money(a)} → ${money(c)}).`);
+    const [a, b, c] = trend.map((x) => x.v.spent);
+    if (a < b && b < c) push('trend', 'warn', '📈', t('Monthly trend'), t('Spending has risen three months in a row ({a} → {c}).', { a: money(a), c: money(c) }));
+    else if (a > b && b > c) push('trend', 'good', '📉', t('Monthly trend'), t('Spending has fallen three months in a row ({a} → {c}).', { a: money(a), c: money(c) }));
   }
 
   if (isCur) {
@@ -539,11 +540,11 @@ export function insights(state, today, ym = monthOf(today)) {
     const dailyVar = s.variableSpent / elapsed;
     if (dailyVar > 0 && safe.available >= 0) {
       const lasts = Math.floor(safe.available / dailyVar);
-      if (lasts < safe.days) push('pace', 'bad', '⏳', 'Spending pace', `At your current rate you may run out of your variable budget ${safe.days - lasts} day${safe.days - lasts === 1 ? '' : 's'} before payday.`);
-      else push('pace', 'good', '✅', 'Spending pace', `At your current rate your variable budget lasts until payday.`);
+      if (lasts < safe.days) push('pace', 'bad', '⏳', t('Spending pace'), t('At your current rate you may run out of your variable budget {n} before payday.', { n: plural(safe.days - lasts, 'day', 'days') }));
+      else push('pace', 'good', '✅', t('Spending pace'), t('At your current rate your variable budget lasts until payday.'));
     }
   }
-  if (s.income && s.savingsRate >= (state.settings.savingsRateTarget || 20) && !isCur) push('saved', 'good', '💰', 'Saved well', `You saved ${s.savingsRate}% of your income this month.`);
+  if (s.income && s.savingsRate >= (state.settings.savingsRateTarget || 20) && !isCur) push('saved', 'good', '💰', t('Saved well'), t('You saved {p}% of your income this month.', { p: s.savingsRate }));
   return out;
 }
 
@@ -570,39 +571,39 @@ export function alerts(state, today) {
 
   for (const c of s.cats) {
     if (c.cat.kind === 'savings' || !c.budget) continue;
-    if (c.spent > c.budget) push('budget', 'bad', '🚨', `${c.cat.name} is ${money(c.overBy)} over budget.`);
-    else if (c.usage >= 80) push('budget', 'warn', '⚠️', `You have spent ${Math.round(c.usage)}% of your ${c.cat.name.toLowerCase()} budget.`);
+    if (c.spent > c.budget) push('budget', 'bad', '🚨', t('{name} is {amount} over budget.', { name: c.cat.name, amount: money(c.overBy) }));
+    else if (c.usage >= 80) push('budget', 'warn', '⚠️', t('You have spent {p}% of your {name} budget.', { p: Math.round(c.usage), name: c.cat.name.toLowerCase() }));
   }
   const last7 = (() => {
-    let t = 0;
-    for (let i = 0; i < 7; i++) { const d = addDays(today, -i); if (monthOf(d) === ym) t += dailySpend(state, ym, true)[dayOf(d) - 1] || 0; }
-    return t;
+    let tot = 0;
+    for (let i = 0; i < 7; i++) { const d = addDays(today, -i); if (monthOf(d) === ym) tot += dailySpend(state, ym, true)[dayOf(d) - 1] || 0; }
+    return tot;
   })();
   const recentDaily = Math.round(last7 / Math.min(7, dayOf(today)));
   if (safe.safeDaily > 0 && recentDaily > safe.safeDaily * 1.25 && recentDaily - safe.safeDaily >= 100) {
-    push('pace', 'warn', '⚠️', `You are spending ${money(recentDaily, true)}/day but your safe limit is ${money(safe.safeDaily, true)}/day.`);
+    push('pace', 'warn', '⚠️', t('You are spending {a}/day but your safe limit is {b}/day.', { a: money(recentDaily, true), b: money(safe.safeDaily, true) }));
   } else if (safe.availableRaw <= 0 && s.count > 0 && s.income) {
-    push('pace', 'bad', '🚨', `Nothing is safe to spend right now: your remaining money is already committed.`);
+    push('pace', 'bad', '🚨', t('Nothing is safe to spend right now: your remaining money is already committed.'));
   }
   if (s.income && safe.available > 0 && safe.available < s.income * 0.15) {
-    push('low', 'warn', '⚠️', `You have ${money(safe.available, true)} safe to spend and ${safe.days} days until payday.`);
+    push('low', 'warn', '⚠️', t('You have {amount} safe to spend and {days} until payday.', { amount: money(safe.available, true), days: plural(safe.days, 'day', 'days') }));
   }
   for (const u of safe.upcoming) {
     const dd = diffDays(u.date, today);
-    if (dd >= 1 && dd <= 3) push('recurring', 'info', '🔔', `A recurring payment of ${money(u.amount)} (${u.rec.name}) is coming ${dd === 1 ? 'tomorrow' : `in ${dd} days`}.`);
+    if (dd >= 1 && dd <= 3) push('recurring', 'info', '🔔', t(dd === 1 ? 'A recurring payment of {amount} ({name}) is coming tomorrow.' : 'A recurring payment of {amount} ({name}) is coming in {n}.', { amount: money(u.amount), name: u.rec.name, n: plural(dd, 'day', 'days') }));
   }
-  if (s.income && s.savingsRate >= (state.settings.savingsRateTarget || 20) && s.count > 3) push('savings', 'good', '💰', `You are on track to save ${s.savingsRate}% of your income this month.`);
+  if (s.income && s.savingsRate >= (state.settings.savingsRateTarget || 20) && s.count > 3) push('savings', 'good', '💰', t('You are on track to save {p}% of your income this month.', { p: s.savingsRate }));
   const prevByCat = spentByCat(state, addMonths(ym, -1), dayOf(today));
   const curByCat = spentByCat(state, ym, dayOf(today));
   for (const c of s.cats) {
     const p = prevByCat[c.cat.id] || 0, n = curByCat[c.cat.id] || 0;
-    if (c.cat.kind !== 'savings' && p >= 2000 && n - p >= 1000 && n >= p * 1.15) push('trend', 'warn', '📈', `Your ${c.cat.name.toLowerCase()} spending increased by ${Math.round(((n - p) / p) * 100)}% compared with last month.`);
+    if (c.cat.kind !== 'savings' && p >= 2000 && n - p >= 1000 && n >= p * 1.15) push('trend', 'warn', '📈', t('Your {name} spending increased by {p}% compared with last month.', { name: c.cat.name.toLowerCase(), p: Math.round(((n - p) / p) * 100) }));
   }
   for (const r of evaluateRules(state, ym)) {
-    if (r.status === 'violated') push('rules', 'bad', '🚫', `Rule broken: ${ruleText(state, r.rule, money)}`);
+    if (r.status === 'violated') push('rules', 'bad', '🚫', t('Rule broken: {rule}', { rule: ruleText(state, r.rule, money) }));
   }
-  if (s.alloc.over) push('plan', 'bad', '🚨', `Your budget is over-allocated by ${money(-s.alloc.unallocated)}.`);
-  else if (s.alloc.income && s.alloc.unallocated > 0) push('plan', 'info', '🧭', `${money(s.alloc.unallocated)} of your income has no job yet.`);
+  if (s.alloc.over) push('plan', 'bad', '🚨', t('Your budget is over-allocated by {amount}.', { amount: money(-s.alloc.unallocated) }));
+  else if (s.alloc.income && s.alloc.unallocated > 0) push('plan', 'info', '🧭', t('{amount} of your income has no job yet.', { amount: money(s.alloc.unallocated) }));
   const rank = { bad: 0, warn: 1, info: 2, good: 3 };
   return out.sort((a, b) => rank[a.severity] - rank[b.severity]);
 }
@@ -629,32 +630,32 @@ export function canAfford(state, today, amount, categoryId = null) {
 
   if (amount > safe.cashLeft) {
     bump('no');
-    reasons.push(`It is more than the ${money(Math.max(0, safe.cashLeft))} you have left this month.`);
+    reasons.push(t('It is more than the {amount} you have left this month.', { amount: money(Math.max(0, safe.cashLeft)) }));
   } else if (shortfall === 0) {
-    reasons.push(`You can afford this: it uses ${money(amount)} of your ${money(safe.available)} safe-to-spend money.`);
-    if (safe.safeDaily > 0 && afterDaily < safe.safeDaily * 0.5) { bump('caution'); reasons.push(`Your safe daily limit would fall from ${money(safe.safeDaily)} to ${money(afterDaily)} for the next ${safe.days} days.`); }
-    else reasons.push(`Your safe daily limit would go from ${money(safe.safeDaily)} to ${money(afterDaily)}.`);
+    reasons.push(t('You can afford this: it uses {a} of your {b} safe-to-spend money.', { a: money(amount), b: money(safe.available) }));
+    if (safe.safeDaily > 0 && afterDaily < safe.safeDaily * 0.5) { bump('caution'); reasons.push(t('Your safe daily limit would fall from {a} to {b} for the next {n}.', { a: money(safe.safeDaily), b: money(afterDaily), n: plural(safe.days, 'day', 'days') })); }
+    else reasons.push(t('Your safe daily limit would go from {a} to {b}.', { a: money(safe.safeDaily), b: money(afterDaily) }));
   } else if (billsHit === 0) {
     bump('caution');
-    reasons.push(`You can afford this, but it would reduce your planned savings by ${money(savingsHit)} this month.`);
+    reasons.push(t('You can afford this, but it would reduce your planned savings by {amount} this month.', { amount: money(savingsHit) }));
   } else {
     bump('no');
-    if (savingsHit > 0) reasons.push(`It would wipe out ${money(savingsHit)} of planned savings and leave ${money(billsHit)} short of upcoming bills and fixed costs.`);
-    else reasons.push(`It would leave you ${money(billsHit)} short for bills and fixed costs still to come this month.`);
+    if (savingsHit > 0) reasons.push(t('It would wipe out {a} of planned savings and leave {b} short of upcoming bills and fixed costs.', { a: money(savingsHit), b: money(billsHit) }));
+    else reasons.push(t('It would leave you {amount} short for bills and fixed costs still to come this month.', { amount: money(billsHit) }));
   }
   if (categoryId) {
     const c = s.cats.find((x) => x.cat.id === categoryId);
     if (c && c.cat.kind !== 'savings' && c.budget > 0 && c.spent + amount > c.budget) {
       bump('caution');
-      reasons.push(`${c.cat.name} would go ${money(c.spent + amount - c.budget)} over its ${money(c.budget)} budget.`);
+      reasons.push(t('{name} would go {a} over its {b} budget.', { name: c.cat.name, a: money(c.spent + amount - c.budget), b: money(c.budget) }));
     }
   }
   const before = evaluateRules(state, safe.ym).filter((r) => r.status === 'violated').map((r) => r.rule.id);
   const hypo = withExpense(state, { date: today, amount, categoryId: categoryId || state.categories.find((c) => c.kind === 'variable')?.id });
   const nowBroken = evaluateRules(hypo, safe.ym).filter((r) => r.status === 'violated' && !before.includes(r.rule.id));
-  for (const r of nowBroken) { bump('caution'); reasons.push(`It would break your rule: ${ruleText(state, r.rule, money)}`); }
-  if (safe.upcoming.length) reasons.push(`Upcoming recurring payments before payday: ${money(sum(safe.upcoming, (u) => u.amount))}.`);
-  reasons.push(`${safe.days} day${safe.days === 1 ? '' : 's'} until payday.`);
+  for (const r of nowBroken) { bump('caution'); reasons.push(t('It would break your rule: {rule}', { rule: ruleText(state, r.rule, money) })); }
+  if (safe.upcoming.length) reasons.push(t('Upcoming recurring payments before payday: {amount}.', { amount: money(sum(safe.upcoming, (u) => u.amount)) }));
+  reasons.push(t('{n} until payday.', { n: plural(safe.days, 'day', 'days') }));
   return { verdict, reasons, available: safe.available, after, safeDaily: safe.safeDaily, afterDaily, days: safe.days, savingsHit, billsHit };
 }
 

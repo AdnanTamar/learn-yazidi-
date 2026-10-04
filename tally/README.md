@@ -19,6 +19,7 @@ npm test         # node --test: calculation engine, CSV, rollover, history, goal
 - **Expenses**: fast add (N key / + button), search & filters, recurring, receipt photos, edit/delete with undo.
 - **Recurring**, **Goals** (required monthly saving, projected date), **Emergency fund** (months of coverage, configurable target), **Insights**, **Money leaks**, **Health score** (informational), **Alerts**, **Can I afford this?**, **What-if simulator**, **History** (month compare) and **Annual overview**.
 - **Import/Export**: CSV export, bank-statement CSV import with manual column + category mapping, JSON backup/restore. No bank connection needed.
+- **English and Arabic (العربية)** with full right-to-left layout. Language follows your browser by default and can be switched in the setup header or Settings. Arabic-Indic digits are accepted in inputs, and default category names follow the language.
 - Dark/light/auto themes, mobile bottom nav + desktop sidebar, keyboard accessible, installable/offline (service worker).
 
 ## Design decisions
@@ -29,3 +30,6 @@ npm test         # node --test: calculation engine, CSV, rollover, history, goal
 
 ## Layout
 `js/calc.js` pure calculations · `js/model.js` state, setup, demo, validation · `js/csv.js` · `js/money.js`/`dates.js` · `js/store.js` persistence + mutations · `js/charts.js` SVG/HTML charts · `js/views/*` screens · `tests/` unit tests.
+
+## Translating
+UI strings are English keys passed through `t()` (`js/i18n.js`); `h()` translates text and `aria-label`/`placeholder`/`title` automatically. Add a language by adding a dictionary like `js/i18n-ar.js`. `npm test` checks that every `t('…')` key has a translation and that placeholders match.

@@ -6,23 +6,24 @@ import { monthSwitcher } from '../components.js';
 import { lineChart, calendarHeat, barChart } from '../charts.js';
 import { healthCard, alertList, insightItem, leaksCard, sectionHead } from './dashboard.js';
 import { visibleAlerts } from '../notify.js';
+import { t } from '../i18n.js';
 
 export function renderInsights() {
-  const st = cs(), t = today(), ym = ui.ym, cur = isCurrent();
+  const st = cs(), tdy = today(), ym = ui.ym, cur = isCurrent();
   const s = monthSummary(st, ym);
   const page = h('div', { class: 'page' });
   page.append(h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Insights'), h('div', { class: 'sub' }, 'What your spending is telling you')), h('div', { class: 'row wrap' }, monthSwitcher(), h('button', { class: 'btn', onclick: () => go('planner') }, icon('planner', 16), 'Planner'))));
-  if (s.count === 0) { page.append(h('div', { class: 'card' }, emptyState({ icon: '💡', title: 'Not enough data yet', text: `Add a few expenses in ${monthName(ym)} and insights will appear here.` }))); page.append(h('div', { class: 'card', style: { marginTop: '14px' } }, sectionHead('Financial health'), healthCard(st, t))); return page; }
+  if (s.count === 0) { page.append(h('div', { class: 'card' }, emptyState({ icon: '💡', title: 'Not enough data yet', text: t('Add a few expenses in {month} and insights will appear here.', { month: monthName(ym) }) }))); page.append(h('div', { class: 'card', style: { marginTop: '14px' } }, sectionHead('Financial health'), healthCard(st, tdy))); return page; }
   const al = cur ? visibleAlerts() : [];
   const grid = h('div', { class: 'grid cols-2' });
   const left = h('div', { class: 'stack' }), right = h('div', { class: 'stack' });
-  left.append(h('div', { class: 'card' }, sectionHead('Financial health'), healthCard(st, t)));
+  left.append(h('div', { class: 'card' }, sectionHead('Financial health'), healthCard(st, tdy)));
   if (cur) left.append(h('div', { class: 'card' }, sectionHead('Alerts', 'Notification settings', () => go('settings')), al.length ? alertList(al, { limit: 20 }) : h('p', { class: 'muted' }, state().settings.notifications.enabled ? 'No alerts right now. Everything looks fine.' : 'Notifications are turned off in Settings.')));
   left.append(leaksCard(st, ym, { full: true }));
-  const ins = insights(st, t, ym);
+  const ins = insights(st, tdy, ym);
   right.append(h('div', { class: 'card' }, sectionHead('What we noticed'), ins.length ? h('div', { class: 'stack', style: { gap: '8px' } }, ins.map(insightItem)) : h('p', { class: 'muted' }, 'Nothing stands out yet.')));
   /* pace chart */
-  const n = monthLen(ym), upto = cur ? dayOf(t) : n;
+  const n = monthLen(ym), upto = cur ? dayOf(tdy) : n;
   const daily = dailySpend(st, ym);
   let acc = 0; const cum = daily.map((v, i) => { acc += v; return i < upto ? acc : null; });
   const budget = s.cats.filter((c) => c.cat.kind !== 'savings').reduce((a, c) => a + c.budget, 0);

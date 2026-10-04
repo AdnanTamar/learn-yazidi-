@@ -8,9 +8,10 @@ import { ui, go, rerender, setMoneyOverride } from '../ctx.js';
 import { budgetEditor, allocationMeter, allocationDonut } from '../budget-editor.js';
 import { openCategoryModal } from '../components.js';
 import { todayStr, monthOf } from '../dates.js';
+import { t, getLang } from '../i18n.js';
 
 export const CURRENCIES = [['EUR', 'Euro (€)'], ['USD', 'US dollar ($)'], ['GBP', 'British pound (£)'], ['CHF', 'Swiss franc (CHF)'], ['SEK', 'Swedish krona (kr)'], ['NOK', 'Norwegian krone (kr)'], ['DKK', 'Danish krone (kr)'], ['PLN', 'Polish złoty (zł)'], ['CZK', 'Czech koruna (Kč)'], ['HUF', 'Hungarian forint (Ft)'], ['RON', 'Romanian leu (lei)'], ['TRY', 'Turkish lira (₺)'], ['CAD', 'Canadian dollar ($)'], ['AUD', 'Australian dollar ($)'], ['NZD', 'New Zealand dollar ($)'], ['INR', 'Indian rupee (₹)'], ['BRL', 'Brazilian real (R$)'], ['MXN', 'Mexican peso ($)'], ['ZAR', 'South African rand (R)'], ['AED', 'UAE dirham (AED)']];
-export const LOCALES = [['', 'Automatic (this device)'], ['en-US', 'English (US) 1,234.56'], ['en-GB', 'English (UK) 1,234.56'], ['de-DE', 'Deutsch 1.234,56'], ['fr-FR', 'Français 1 234,56'], ['es-ES', 'Español 1.234,56'], ['it-IT', 'Italiano 1.234,56'], ['nl-NL', 'Nederlands 1.234,56'], ['pt-PT', 'Português 1 234,56'], ['sv-SE', 'Svenska 1 234,56'], ['pl-PL', 'Polski 1 234,56'], ['tr-TR', 'Türkçe 1.234,56']];
+export const LOCALES = [['', 'Automatic (this device)'], ['ar-u-nu-latn', 'العربية 1,234.56'], ['ar-EG', 'العربية ١٬٢٣٤٫٥٦'], ['en-US', 'English (US) 1,234.56'], ['en-GB', 'English (UK) 1,234.56'], ['de-DE', 'Deutsch 1.234,56'], ['fr-FR', 'Français 1 234,56'], ['es-ES', 'Español 1.234,56'], ['it-IT', 'Italiano 1.234,56'], ['nl-NL', 'Nederlands 1.234,56'], ['pt-PT', 'Português 1 234,56'], ['sv-SE', 'Svenska 1 234,56'], ['pl-PL', 'Polski 1 234,56'], ['tr-TR', 'Türkçe 1.234,56']];
 const PRESETS = [['Rent', 'housing', 1], ['Phone', 'bills', 5], ['Internet', 'bills', 8], ['Netflix', 'subs', 12], ['Spotify', 'subs', 14], ['Gym', 'subs', 3], ['Insurance', 'bills', 15], ['Transit pass', 'transport', 2]];
 
 const W = { step: 0, setup: null, draft: null, sig: '' };
@@ -18,7 +19,7 @@ function fresh() {
   const loc = cleanLocale(navigator.language);
   const guess = /-(US)$/.test(loc) ? 'USD' : /-(GB)$/.test(loc) ? 'GBP' : /-(CH)$/.test(loc) ? 'CHF' : 'EUR';
   W.step = 0; W.draft = null; W.sig = '';
-  W.setup = { name: '', currency: guess, locale: loc, income: 0, incomeName: 'Main job', payDay: 25, savingsStart: 0, emergencyStart: 0, savingsTarget: 0, debts: [], recurring: [] };
+  W.setup = { name: '', currency: guess, locale: loc, income: 0, incomeName: t('Main job'), payDay: 25, savingsStart: 0, emergencyStart: 0, savingsTarget: 0, debts: [], recurring: [] };
 }
 export function resetWizard() { W.setup = null; }
 
@@ -29,13 +30,22 @@ export function renderWizard() {
   const total = 5;
   root.append(h('div', { class: 'row spread', style: { marginBottom: '14px' } },
     h('div', { class: 'brand', style: { padding: 0 } }, h('div', { class: 'brand-mark' }, '◔'), 'Tally'),
-    store.getState().mode === 'demo' ? h('button', { class: 'link', onclick: () => go('dashboard') }, 'Back to demo') : null),
-  h('div', { class: 'steps', 'aria-label': `Step ${W.step + 1} of ${total}` }, Array.from({ length: total }, (_, i) => h('i', { class: i <= W.step ? 'on' : '' }))));
+    h('div', { class: 'row' }, langToggle(), store.getState().mode === 'demo' ? h('button', { class: 'link', onclick: () => go('dashboard') }, 'Back to demo') : null)),
+  h('div', { class: 'steps', 'aria-label': t('Step {a} of {b}', { a: W.step + 1, b: total }) }, Array.from({ length: total }, (_, i) => h('i', { class: i <= W.step ? 'on' : '' }))));
   const steps = [stepIncome, stepSavings, stepRecurring, stepAllocate, stepReady];
   root.append(steps[W.step](root));
   return root;
 }
 
+function langToggle() {
+  const other = getLang() === 'ar' ? 'en' : 'ar';
+  return h('button', { class: 'btn small ghost', 'aria-label': getLang() === 'ar' ? 'English' : 'العربية', lang: other, onclick: () => {
+    store.setLanguage(other);
+    const S = W.setup;
+    if (S) { S.locale = other === 'ar' ? 'ar-u-nu-latn' : cleanLocale(navigator.language).startsWith('ar') ? 'en' : cleanLocale(navigator.language); if (S.incomeName === t('Main job') || S.incomeName === 'Main job' || S.incomeName === 'الوظيفة الرئيسية') S.incomeName = t('Main job'); }
+    W.draft = null; W.sig = ''; rerender();
+  } }, other === 'ar' ? 'العربية' : 'English');
+}
 const next = () => { W.step++; rerender(); window.scrollTo(0, 0); };
 const back = () => { W.step--; rerender(); window.scrollTo(0, 0); };
 const nav = (onNext, { nextLabel = 'Continue', skip = null } = {}) => h('div', { class: 'row spread', style: { marginTop: '18px' } },
@@ -110,9 +120,9 @@ function stepRecurring() {
     S.recurring.forEach((r, i) => {
       const nm = h('input', { class: 'input', value: r.name, maxlength: 40, 'aria-label': 'Name', oninput: () => { r.name = nm.value; } });
       const amt = moneyInput({ value: r.amount ? toInput(r.amount) : '', 'aria-label': 'Monthly amount', oninput: () => { const v = parseMoney(amt.value); r.amount = Number.isFinite(v) ? Math.max(0, v) : 0; } });
-      const cat = selectEl([...SUGGESTED.filter((c) => c.kind !== 'savings').map((c) => [c.key, `${c.icon} ${c.name}`])], r.categoryKey, { 'aria-label': 'Category', onchange: () => { r.categoryKey = cat.value; } });
+      const cat = selectEl([...SUGGESTED.filter((c) => c.kind !== 'savings').map((c) => [c.key, `${c.icon} ${t(c.name)}`])], r.categoryKey, { 'aria-label': 'Category', onchange: () => { r.categoryKey = cat.value; } });
       const day = h('input', { class: 'input', type: 'number', min: 1, max: 31, value: r.day, 'aria-label': 'Day of month', oninput: () => { r.day = Math.min(31, Math.max(1, parseInt(day.value, 10) || 1)); } });
-      list.append(h('div', { class: 'card tight', style: { marginBottom: '10px' } }, h('div', { class: 'form-row' }, nm, amt), h('div', { class: 'form-row', style: { marginTop: '8px' } }, cat, h('div', { class: 'row' }, h('span', { class: 'muted small' }, 'on day'), h('div', { class: 'grow' }, day), h('button', { class: 'icon-btn danger', 'aria-label': `Remove ${r.name || 'item'}`, onclick: () => { S.recurring.splice(i, 1); draw(); } }, icon('trash'))))));
+      list.append(h('div', { class: 'card tight', style: { marginBottom: '10px' } }, h('div', { class: 'form-row' }, nm, amt), h('div', { class: 'form-row', style: { marginTop: '8px' } }, cat, h('div', { class: 'row' }, h('span', { class: 'muted small' }, 'on day'), h('div', { class: 'grow' }, day), h('button', { class: 'icon-btn danger', 'aria-label': t('Remove {name}', { name: r.name || t('item') }), onclick: () => { S.recurring.splice(i, 1); draw(); } }, icon('trash'))))));
     });
   };
   draw();
@@ -122,7 +132,7 @@ function stepRecurring() {
     next();
   };
   return h('div', null, h('div', { class: 'card' }, h('h1', null, 'Recurring monthly expenses'), h('p', { class: 'muted', style: { marginBottom: '14px' } }, 'Rent, phone, subscriptions… we will add them automatically every month and make sure your budget covers them.'),
-    h('div', { class: 'chips', style: { marginBottom: '14px' } }, PRESETS.map(([n, k, d]) => h('button', { class: 'chip', onclick: () => { S.recurring.push({ name: n, amount: 0, categoryKey: k, day: d }); draw(); } }, '+ ' + n))), list,
+    h('div', { class: 'chips', style: { marginBottom: '14px' } }, PRESETS.map(([n, k, d]) => h('button', { class: 'chip', onclick: () => { S.recurring.push({ name: t(n), amount: 0, categoryKey: k, day: d }); draw(); } }, '+ ' + t(n)))), list,
     h('button', { class: 'btn small', onclick: () => { S.recurring.push({ name: '', amount: 0, categoryKey: 'bills', day: 1 }); draw(); } }, icon('plus', 16), 'Add custom')),
   nav(go3, { skip: () => { S.recurring = []; next(); } }));
 }
@@ -160,7 +170,7 @@ function stepAllocate() {
     add: (patch) => { const c = { id: uid(), key: 'c' + uid(), notes: '', ...patch }; draft.categories.push(c); draft.plan.budgets[c.id] = { mode: 'amount', value: 0 }; },
     remove: async (cat, done) => {
       if (draft.categories.length <= 1) return;
-      if (await confirmDialog({ title: `Delete “${cat.name}”?`, text: 'It will be removed from your plan.', confirmLabel: 'Delete', danger: true })) {
+      if (await confirmDialog({ title: t('Delete “{name}”?', { name: cat.name }), text: 'It will be removed from your plan.', confirmLabel: 'Delete', danger: true })) {
         draft.categories = draft.categories.filter((c) => c.id !== cat.id); delete draft.plan.budgets[cat.id];
         S.recurring.forEach((r) => { if (r.categoryKey === cat.key) r.categoryKey = 'other'; });
         done?.();
@@ -172,11 +182,11 @@ function stepAllocate() {
   refresh();
   const go4 = () => {
     const a = allocation({ categories: draft.categories }, draft.plan);
-    if (a.over) return toast(`Your budget is ${money(-a.unallocated)} over your income. Lower a category to continue.`, { kind: 'bad' });
+    if (a.over) return toast(t('Your budget is {amount} over your income. Lower a category to continue.', { amount: money(-a.unallocated) }), { kind: 'bad' });
     next();
   };
   return h('div', null,
-    h('div', { class: 'big-claim', style: { margin: '6px 0 6px' } }, `Your ${money(S.income).replace(/\.00$/, '')} salary needs a job.`),
+    h('div', { class: 'big-claim', style: { margin: '6px 0 6px' } }, t('Your {amount} salary needs a job.', { amount: money(S.income).replace(/\.00$/, '') })),
     h('p', { class: 'muted', style: { marginBottom: '14px' } }, 'We suggested a split. Rename, reorder or change anything. Type an amount or a percentage; the other one is calculated for you.'),
     h('div', { class: 'card alloc-meter glass' }, meterBox),
     h('div', { class: 'card', style: { marginTop: '14px' } }, donut.el),
@@ -202,6 +212,6 @@ function stepReady() {
   const line = (label, value, cls = '') => h('div', { class: 'answer' }, h('q', null, label), h('b', { class: cls }, value));
   return h('div', null, h('div', { class: 'card' }, h('div', { class: 'big-claim' }, 'Your monthly plan is ready.'),
     h('div', { style: { margin: '16px 0 6px' } }, line('Income', money(S.income)), line('Planned expenses', money(planned)), line('Savings', money(savings), 'good'), line('Unallocated', money(un), un > 0 ? 'warn' : 'good')),
-    un > 0 ? h('div', { class: 'banner', style: { marginTop: '10px' } }, icon('info'), h('div', { class: 'grow' }, h('b', null, `What does the ${money(un)} unallocated mean?`), 'It is money without a job. It is not spent or saved, so it is the easiest money to waste. You can go back and assign it, or keep it as a buffer for surprises.')) : null),
+    un > 0 ? h('div', { class: 'banner', style: { marginTop: '10px' } }, icon('info'), h('div', { class: 'grow' }, h('b', null, t('What does the {amount} unallocated mean?', { amount: money(un) })), 'It is money without a job. It is not spent or saved, so it is the easiest money to waste. You can go back and assign it, or keep it as a buffer for surprises.')) : null),
     h('div', { class: 'row spread', style: { marginTop: '18px' } }, h('button', { class: 'btn ghost', onclick: back }, 'Adjust plan'), h('button', { class: 'btn primary', onclick: finish, 'data-autofocus': '' }, 'Open my dashboard')));
 }

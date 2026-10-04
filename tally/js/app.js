@@ -16,6 +16,7 @@ import { renderWizard, resetWizard } from './views/wizard.js';
 import { applyTheme } from './theme.js';
 import { maybeBrowserNotify } from './notify.js';
 import { todayStr, monthOf } from './dates.js';
+import { t } from './i18n.js';
 
 const ROUTES = {
   dashboard: ['Dashboard', renderDashboard], expenses: ['Expenses', renderExpenses], budget: ['Budget', renderBudget], goals: ['Goals', renderGoals],
@@ -72,7 +73,7 @@ function render() {
   let page;
   try { page = fn(); } catch (e) { console.error(e); page = errorCard(e); }
   clear(shell.main).append(page);
-  document.title = `Tally · ${title}`;
+  document.title = `Tally · ${t(title)}`;
   document.querySelectorAll('[data-route]').forEach((a) => (a.dataset.route === route ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
   const err = store.getError();
   if (err) shell.main.prepend(h('div', { class: 'banner bad', role: 'alert', style: { margin: '12px 16px 0' } }, h('div', { class: 'grow' }, err)));
@@ -89,12 +90,12 @@ function errorCard(e) {
 function schedule() { cancelAnimationFrame(raf); raf = requestAnimationFrame(render); }
 
 function dayCheck() {
-  const t = todayStr();
-  if (t === lastDay) return;
+  const td = todayStr();
+  if (td === lastDay) return;
   const wasCurrent = ui.ym === monthOf(lastDay);
-  lastDay = t;
+  lastDay = td;
   store.dayRollover();
-  if (wasCurrent) ui.ym = monthOf(t);
+  if (wasCurrent) ui.ym = monthOf(td);
   render();
 }
 

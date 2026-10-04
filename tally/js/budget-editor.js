@@ -30,11 +30,11 @@ export function budgetEditor({ model, onChange }) {
     if (document.activeElement !== r.range) r.range.value = Math.min(50, bp / 100);
     r.amountWrap.classList.toggle('mode-on', b.mode === 'amount');
     r.pctWrap.classList.toggle('mode-on', b.mode === 'percent');
-    r.modeBtn.textContent = b.mode === 'percent' ? '% of salary · follows your income' : 'Fixed amount · stays the same';
-    r.modeBtn.setAttribute('aria-label', `Budget is ${b.mode === 'percent' ? 'a percentage of salary' : 'a fixed amount'}. Switch.`);
+    r.modeBtn.textContent = b.mode === 'percent' ? t('% of salary · follows your income') : t('Fixed amount · stays the same');
+    r.modeBtn.setAttribute('aria-label', t(b.mode === 'percent' ? 'Budget is a percentage of salary. Switch.' : 'Budget is a fixed amount. Switch.'));
     if (model.info) {
       const i = model.info(id);
-      r.info.textContent = i ? `Spent ${money(i.spent)} · ${i.remaining >= 0 ? money(i.remaining) + ' left' : money(-i.remaining) + ' over'}` : '';
+      r.info.textContent = i ? `${t('Spent {amount}', { amount: money(i.spent) })} · ${i.remaining >= 0 ? t('{amount} left', { amount: money(i.remaining) }) : t('{amount} over', { amount: money(-i.remaining) })}` : '';
       r.info.className = 'small ' + (i && i.remaining < 0 ? 'bad' : 'muted');
     }
   }
@@ -51,19 +51,19 @@ export function budgetEditor({ model, onChange }) {
     const cats = model.categories();
     cats.forEach((c, idx) => {
       const err = h('div', { class: 'field-error', role: 'alert' });
-      const amount = h('input', { class: 'input compact', type: 'text', inputmode: 'decimal', 'aria-label': `${c.name} budget amount`, autocomplete: 'off' });
-      const pctIn = h('input', { class: 'input compact', type: 'text', inputmode: 'decimal', 'aria-label': `${c.name} percentage of salary`, autocomplete: 'off' });
-      const range = h('input', { type: 'range', min: 0, max: 50, step: 0.5, 'aria-label': `${c.name} percentage slider` });
+      const amount = h('input', { class: 'input compact', type: 'text', inputmode: 'decimal', 'aria-label': t('{name} budget amount', { name: c.name }), autocomplete: 'off' });
+      const pctIn = h('input', { class: 'input compact', type: 'text', inputmode: 'decimal', 'aria-label': t('{name} percentage of salary', { name: c.name }), autocomplete: 'off' });
+      const range = h('input', { type: 'range', min: 0, max: 50, step: 0.5, 'aria-label': t('{name} percentage slider', { name: c.name }) });
       amount.addEventListener('input', () => {
         const v = parseMoney(amount.value);
         if (amount.value.trim() === '') return commit(c.id, 'amount', 0), (err.textContent = '');
-        if (!Number.isFinite(v) || v < 0) { err.textContent = 'Enter a valid amount.'; return; }
+        if (!Number.isFinite(v) || v < 0) { err.textContent = t('Enter a valid amount.'); return; }
         err.textContent = ''; commit(c.id, 'amount', v);
       });
       pctIn.addEventListener('input', () => {
         const v = parsePercent(pctIn.value);
         if (pctIn.value.trim() === '') return commit(c.id, 'percent', 0), (err.textContent = '');
-        if (!Number.isFinite(v) || v < 0 || v > 10000) { err.textContent = 'Enter a percentage between 0 and 100.'; return; }
+        if (!Number.isFinite(v) || v < 0 || v > 10000) { err.textContent = t('Enter a percentage between 0 and 100.'); return; }
         err.textContent = ''; commit(c.id, 'percent', v);
       });
       range.addEventListener('input', () => { err.textContent = ''; commit(c.id, 'percent', Math.round(Number(range.value) * 100)); });
@@ -81,10 +81,10 @@ export function budgetEditor({ model, onChange }) {
         h('div', { class: 'drag-handle', draggable: 'false', title: 'Drag to reorder', 'aria-hidden': 'true', onpointerdown: () => { row.draggable = true; }, onpointerup: () => { row.draggable = false; } }, icon('grip')),
         h('div', null,
           h('div', { class: 'head' },
-            h('button', { type: 'button', class: 'name', onclick: () => model.edit(c), 'aria-label': `Edit category ${c.name}` }, `${c.icon} ${c.name}`),
+            h('button', { type: 'button', class: 'name', onclick: () => model.edit(c), 'aria-label': t('Edit category {name}', { name: c.name }) }, `${c.icon} ${c.name}`),
             h('span', { class: 'badge mute' }, KIND_LABEL[c.kind] || c.kind),
-            h('button', { type: 'button', class: 'icon-btn', 'aria-label': `Move ${c.name} up`, disabled: idx === 0, onclick: () => { model.move(c.id, idx - 1); build(); onChange?.(true); } }, icon('up', 16)),
-            h('button', { type: 'button', class: 'icon-btn', 'aria-label': `Move ${c.name} down`, disabled: idx === cats.length - 1, onclick: () => { model.move(c.id, idx + 1); build(); onChange?.(true); } }, icon('down', 16))),
+            h('button', { type: 'button', class: 'icon-btn', 'aria-label': t('Move {name} up', { name: c.name }), disabled: idx === 0, onclick: () => { model.move(c.id, idx - 1); build(); onChange?.(true); } }, icon('up', 16)),
+            h('button', { type: 'button', class: 'icon-btn', 'aria-label': t('Move {name} down', { name: c.name }), disabled: idx === cats.length - 1, onclick: () => { model.move(c.id, idx + 1); build(); onChange?.(true); } }, icon('down', 16))),
           h('div', { class: 'fields' }, amountWrap, pctWrap),
           range, err, modeBtn, info));
       row.addEventListener('dragstart', (e) => { dragId = c.id; row.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', c.id); });
@@ -113,23 +113,24 @@ export function budgetEditor({ model, onChange }) {
 /** Allocated / unallocated meter: stacked bar + plain-language explanation. */
 export function allocationMeter(alloc, categories) {
   const income = alloc.income || 1;
-  const bar = h('div', { class: 'alloc-bar', role: 'img', 'aria-label': `Allocated ${Math.round(alloc.allocatedBp / 100)}% of income` },
+  const bar = h('div', { class: 'alloc-bar', role: 'img', 'aria-label': t('Allocated {p}% of income', { p: Math.round(alloc.allocatedBp / 100) }) },
     alloc.rows.filter((r) => r.amount > 0).map((r) => h('i', { style: { width: Math.min(100, (r.amount / Math.max(income, alloc.allocated)) * 100) + '%', background: r.cat.color }, title: `${r.cat.name} ${money(r.amount)}` })));
   const over = alloc.over, un = alloc.unallocated;
   return h('div', null,
     h('div', { class: 'row spread wrap', style: { marginBottom: '8px' } },
       h('div', null, h('div', { class: 'small muted' }, 'Allocated'), h('b', { style: { fontSize: '20px' } }, money(alloc.allocated)), h('span', { class: 'muted small' }, ` · ${pct(alloc.allocatedBp / 100)}`)),
-      h('div', { style: { textAlign: 'right' } }, h('div', { class: 'small muted' }, over ? 'Over-allocated' : 'Unallocated'), h('b', { style: { fontSize: '20px' }, class: over ? 'bad' : un > 0 ? 'warn' : 'good' }, money(over ? -un : un)))),
+      h('div', { style: { textAlign: 'end' } }, h('div', { class: 'small muted' }, over ? 'Over-allocated' : 'Unallocated'), h('b', { style: { fontSize: '20px' }, class: over ? 'bad' : un > 0 ? 'warn' : 'good' }, money(over ? -un : un)))),
     bar,
     over
-      ? h('div', { class: 'banner bad', role: 'alert', style: { marginTop: '12px' } }, icon('warn'), h('div', { class: 'grow' }, h('b', null, `Your budget is ${money(-un)} more than your income.`), 'You have planned to spend money you do not have. Lower some categories until this reads “Unallocated”.'))
+      ? h('div', { class: 'banner bad', role: 'alert', style: { marginTop: '12px' } }, icon('warn'), h('div', { class: 'grow' }, h('b', null, t('Your budget is {amount} more than your income.', { amount: money(-un) })), 'You have planned to spend money you do not have. Lower some categories until this reads “Unallocated”.'))
       : un > 0
-        ? h('div', { class: 'banner', style: { marginTop: '12px' } }, icon('info'), h('div', { class: 'grow' }, h('b', null, `${money(un)} has not been assigned yet.`), 'Unassigned money tends to disappear into small purchases. Give it a job (savings, a goal, a category) or keep it as a buffer.'))
+        ? h('div', { class: 'banner', style: { marginTop: '12px' } }, icon('info'), h('div', { class: 'grow' }, h('b', null, t('{amount} has not been assigned yet.', { amount: money(un) })), 'Unassigned money tends to disappear into small purchases. Give it a job (savings, a goal, a category) or keep it as a buffer.'))
         : h('div', { class: 'banner good', style: { marginTop: '12px' } }, icon('check'), h('div', { class: 'grow' }, h('b', null, 'Your whole income has a job.'), 'Nothing is left unassigned.')));
 }
 
 import { createDonut } from './charts.js';
 import { fmt as _f } from './money.js';
+import { t } from './i18n.js';
 
 /** Donut + legend for a plan allocation. Returns {el, update(alloc, {onSelect})}. */
 export function allocationDonut() {
@@ -139,12 +140,12 @@ export function allocationDonut() {
   const wrap = h('div', { class: 'alloc-split' }, h('div', { class: 'donut-wrap' }, donut.el), legend);
   function update(alloc, { onSelect } = {}) {
     const inc = alloc.income || 0;
-    const segs = alloc.rows.filter((r) => r.amount > 0).map((r) => ({ id: r.cat.id, label: r.cat.name, value: r.amount, color: r.cat.color, valueText: money(r.amount), subText: pct(Math.round((r.amount / (inc || 1)) * 1000) / 10) + ' of income' }));
-    if (alloc.unallocated > 0) segs.push({ id: '_un', label: 'Unallocated', value: alloc.unallocated, color: 'var(--muted)', muted: true, valueText: money(alloc.unallocated), subText: 'not assigned yet' });
+    const segs = alloc.rows.filter((r) => r.amount > 0).map((r) => ({ id: r.cat.id, label: r.cat.name, value: r.amount, color: r.cat.color, valueText: money(r.amount), subText: t('{p} of income', { p: pct(Math.round((r.amount / (inc || 1)) * 1000) / 10) }) }));
+    if (alloc.unallocated > 0) segs.push({ id: '_un', label: t('Unallocated'), value: alloc.unallocated, color: 'var(--muted)', muted: true, valueText: money(alloc.unallocated), subText: t('not assigned yet') });
     donut.update({
       segments: segs, total: inc, over: alloc.over, onSelect: onSelect && ((id) => id !== '_un' && onSelect(id)),
-      centerTop: alloc.over ? 'Over-allocated' : 'Allocated', centerMain: alloc.over ? money(-alloc.unallocated) : money(alloc.allocated), centerClass: alloc.over ? 'bad' : '',
-      centerSub: alloc.over ? 'more than your income' : `of ${money(inc)}`, ariaLabel: `Salary distribution. Allocated ${money(alloc.allocated)} of ${money(inc)}.`,
+      centerTop: alloc.over ? t('Over-allocated') : t('Allocated'), centerMain: alloc.over ? money(-alloc.unallocated) : money(alloc.allocated), centerClass: alloc.over ? 'bad' : '',
+      centerSub: alloc.over ? t('more than your income') : t('of {amount}', { amount: money(inc) }), ariaLabel: t('Salary distribution. Allocated {a} of {b}.', { a: money(alloc.allocated), b: money(inc) }),
     });
     clear(legend);
     segs.forEach((sg) => legend.append(h('div', { class: 'legend-row' }, h('i', { style: { background: sg.color, opacity: sg.muted ? 0.45 : 1 } }), h('span', null, sg.label), h('span', { class: 'p' }, pct(Math.round((sg.value / (inc || 1)) * 1000) / 10)), h('b', null, money(sg.value)))));

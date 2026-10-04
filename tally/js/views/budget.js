@@ -14,11 +14,11 @@ export function categoryRow(c, { onClick } = {}) {
   const usage = noBudget ? 0 : c.usage;
   const over = !saving && c.spent > c.budget;
   const row = h(onClick ? 'button' : 'div', { class: 'cat-row' + (onClick ? ' item' : ''), type: onClick ? 'button' : null, onclick: onClick, style: onClick ? { display: 'block', width: '100%' } : null },
-    h('div', { class: 'top' }, avatar(cat, 36), h('div', { class: 'grow' }, h('div', { style: { fontWeight: 650 } }, cat.name), h('div', { class: 'small muted' }, noBudget ? 'No budget set' : saving ? `Saved ${money(c.spent)} of ${money(c.budget)}` : `${money(c.spent)} / ${money(c.budget)}`)),
+    h('div', { class: 'top' }, avatar(cat, 36), h('div', { class: 'grow' }, h('div', { style: { fontWeight: 650 } }, cat.name), h('div', { class: 'small muted' }, noBudget ? 'No budget set' : saving ? t('Saved {a} of {b}', { a: money(c.spent), b: money(c.budget) }) : `${money(c.spent)} / ${money(c.budget)}`)),
       noBudget ? (c.spent > 0 ? h('span', { class: 'badge warn' }, 'No budget') : null) : h('b', { class: over ? 'bad' : '' }, pct(c.usage))),
-    progress(usage, { color: saving ? 'var(--good)' : cat.color, over, label: `${cat.name} usage` }),
-    noBudget ? null : h('div', { class: 'nums' }, h('span', null, saving ? (c.remaining > 0 ? `${money(c.remaining)} still to save` : 'Goal reached') : c.remaining >= 0 ? `${money(c.remaining)} left` : ''), h('span', null, `${pct(Math.max(0, c.remainingPct))} remaining`)),
-    over ? h('div', { class: 'warnline', role: 'alert' }, icon('warn', 16), noBudget ? `${cat.name}: ${money(c.spent)} spent with no budget.` : `${cat.name} is ${money(c.overBy)} over budget.`) : null);
+    progress(usage, { color: saving ? 'var(--good)' : cat.color, over, label: t('{name} usage', { name: cat.name }) }),
+    noBudget ? null : h('div', { class: 'nums' }, h('span', null, saving ? (c.remaining > 0 ? t('{amount} still to save', { amount: money(c.remaining) }) : 'Goal reached') : c.remaining >= 0 ? t('{amount} left', { amount: money(c.remaining) }) : ''), h('span', null, t('{p} remaining', { p: pct(Math.max(0, c.remainingPct)) }))),
+    over ? h('div', { class: 'warnline', role: 'alert' }, icon('warn', 16), noBudget ? t('{name}: {amount} spent with no budget.', { name: cat.name, amount: money(c.spent) }) : t('{name} is {amount} over budget.', { name: cat.name, amount: money(c.overBy) })) : null);
   return row;
 }
 
@@ -31,7 +31,7 @@ export function renderBudget() {
   ui.tab[tabKey] = ui.tab[tabKey] || (hasAny ? 'breakdown' : 'plan');
   const tab = ui.tab[tabKey];
   const page = h('div', { class: 'page' });
-  page.append(h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Budget'), h('div', { class: 'sub' }, `Plan vs. reality for ${monthName(ui.ym)}`)), monthSwitcher()),
+  page.append(h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Budget'), h('div', { class: 'sub' }, t('Plan vs. reality for {month}', { month: monthName(ui.ym) }))), monthSwitcher()),
     h('div', { style: { marginBottom: '14px' } }, segmented([['breakdown', 'Spending'], ['plan', 'Plan'], ['rules', 'Rules']], tab, (v) => { ui.tab[tabKey] = v; rerender(); }, 'Budget view')));
   page.append(tab === 'breakdown' ? breakdown(st) : tab === 'plan' ? plan(st) : rules(st));
   return page;
@@ -42,17 +42,17 @@ function breakdown(st) {
   const wrap = h('div', { class: 'stack' });
   if (!s.income) wrap.append(h('div', { class: 'banner warn' }, icon('warn'), h('div', { class: 'grow' }, h('b', null, 'No income for this month'), 'Add your income to see budgets and percentages.', h('div', null, h('button', { class: 'btn small', style: { marginTop: '8px' }, onclick: () => openIncomeModal() }, 'Add income')))));
   const overs = s.cats.filter((c) => c.cat.kind !== 'savings' && c.spent > c.budget);
-  if (overs.length) wrap.append(h('div', { class: 'banner bad', role: 'alert' }, icon('warn'), h('div', { class: 'grow' }, h('b', null, overs.length === 1 ? '1 category is over budget' : `${overs.length} categories are over budget`), h('ul', { style: { margin: '6px 0 0', paddingLeft: '18px' } }, overs.map((c) => h('li', null, c.budget ? `${c.cat.name} is ${money(c.overBy)} over budget.` : `${c.cat.name}: ${money(c.spent)} spent with no budget.`))))));
+  if (overs.length) wrap.append(h('div', { class: 'banner bad', role: 'alert' }, icon('warn'), h('div', { class: 'grow' }, h('b', null, t('{n} categories are over budget', { n: overs.length })), h('ul', { style: { margin: '6px 0 0', paddingLeft: '18px' } }, overs.map((c) => h('li', null, c.budget ? t('{name} is {amount} over budget.', { name: c.cat.name, amount: money(c.overBy) }) : t('{name}: {amount} spent with no budget.', { name: c.cat.name, amount: money(c.spent) })))))));
   wrap.append(h('div', { class: 'stats' },
-    statCard({ label: 'Budgeted', value: money(s.alloc.allocated, { compact: true }), sub: `${pct(s.alloc.allocatedBp / 100)} of income` }),
-    statCard({ label: 'Spent', value: money(s.spent, { compact: true }), sub: `${pct(s.spentPct)} of income` }),
+    statCard({ label: 'Budgeted', value: money(s.alloc.allocated, { compact: true }), sub: t('{p} of income', { p: pct(s.alloc.allocatedBp / 100) }) }),
+    statCard({ label: 'Spent', value: money(s.spent, { compact: true }), sub: t('{p} of income', { p: pct(s.spentPct) }) }),
     statCard({ label: s.alloc.unallocated >= 0 ? 'Unallocated' : 'Over-allocated', value: money(Math.abs(s.alloc.unallocated), { compact: true }), valueCls: s.alloc.unallocated < 0 ? 'bad' : '', sub: 'not assigned to a category' })));
   const grid = h('div', { class: 'grid cols-2' });
   for (const [kind, title, sub] of GROUPS) {
     const cats = s.cats.filter((c) => c.cat.kind === kind);
     if (!cats.length) continue;
     const budget = cats.reduce((a, c) => a + c.budget, 0), spent = cats.reduce((a, c) => a + c.spent, 0);
-    grid.append(h('div', { class: 'card' }, h('div', { class: 'card-head' }, h('div', null, h('h2', null, title), h('div', { class: 'small muted' }, sub)), h('div', { style: { textAlign: 'right' } }, h('b', null, money(spent)), h('div', { class: 'small muted' }, `of ${money(budget)}`))),
+    grid.append(h('div', { class: 'card' }, h('div', { class: 'card-head' }, h('div', null, h('h2', null, title), h('div', { class: 'small muted' }, sub)), h('div', { style: { textAlign: 'end' } }, h('b', null, money(spent)), h('div', { class: 'small muted' }, t('of {amount}', { amount: money(budget) })))),
       h('div', null, cats.map((c) => categoryRow(c)))));
   }
   wrap.append(grid);
@@ -86,7 +86,7 @@ function plan(st) {
   wrap.append(h('div', { class: 'card alloc-meter glass' }, meter), h('div', { class: 'card' }, h('div', { class: 'card-head' }, h('h2', null, 'Salary distribution')), donut.el));
   const futureBox = h('input', { type: 'checkbox', id: 'fut', checked: ui.budgetFuture !== false, onchange: (e) => { ui.budgetFuture = e.target.checked; } });
   wrap.append(h('div', { class: 'card' }, h('div', { class: 'card-head' }, h('h2', null, 'Categories & budgets')),
-    cur ? h('div', { class: 'switch' }, h('label', { for: 'fut' }, 'Use these budgets for future months too'), futureBox) : h('p', { class: 'muted small', style: { marginBottom: '8px' } }, `You are editing ${monthName(ym)} only. Other months keep their own plan.`),
+    cur ? h('div', { class: 'switch' }, h('label', { for: 'fut' }, 'Use these budgets for future months too'), futureBox) : h('p', { class: 'muted small', style: { marginBottom: '8px' } }, t('You are editing {month} only. Other months keep their own plan.', { month: monthName(ym) })),
     editor.el));
   return wrap;
 }
@@ -97,8 +97,8 @@ function rules(st) {
   const list = h('div', { class: 'list' });
   if (!ev.length) list.append(emptyState({ icon: '📏', title: 'No rules yet', text: 'Rules are personal limits, like “Never spend more than €300/month on shopping.” You will get a warning when one is broken.' }));
   ev.forEach((r) => {
-    const badge = r.status === 'violated' ? h('span', { class: 'badge bad' }, 'Broken') : r.status === 'warning' ? h('span', { class: 'badge warn' }, 'Close') : h('span', { class: 'badge good' }, 'OK');
-    const detail = r.rule.type.startsWith('max') ? `${money(r.value)} of ${money(r.rule.amount)}${r.gap > 0 ? ` · ${money(r.gap)} over` : ''}` : `${money(r.value)} vs ${money(r.rule.amount)} minimum${r.gap > 0 ? ` · ${money(r.gap)} short` : ''}`;
+    const badge = r.status === 'violated' ? h('span', { class: 'badge bad' }, 'Broken') : r.status === 'warning' ? h('span', { class: 'badge warn' }, 'Near limit') : h('span', { class: 'badge good' }, 'OK');
+    const detail = r.rule.type.startsWith('max') ? t('{a} of {b}', { a: money(r.value), b: money(r.rule.amount) }) + (r.gap > 0 ? ' · ' + t('{amount} over', { amount: money(r.gap) }) : '') : t('{a} vs {b} minimum', { a: money(r.value), b: money(r.rule.amount) }) + (r.gap > 0 ? ' · ' + t('{amount} short', { amount: money(r.gap) }) : '');
     list.append(h('div', { class: 'item' }, h('div', { class: 'grow' }, h('div', { class: 'title', style: { whiteSpace: 'normal' } }, ruleText(st, r.rule, (c) => money(c))), h('div', { class: 'meta' }, detail)), badge,
       h('button', { class: 'icon-btn', 'aria-label': 'Edit rule', onclick: () => ruleModal(r.rule) }, icon('edit')), h('button', { class: 'icon-btn danger', 'aria-label': 'Delete rule', onclick: () => { store.deleteRule(r.rule.id); toast('Rule deleted.'); } }, icon('trash'))));
   });
@@ -126,6 +126,7 @@ export function ruleModal(rule = null) {
   return m;
 }
 import { modal } from '../ui.js';
+import { t } from '../i18n.js';
 function modalShim({ title, body, onSave }) {
   const m = modal({ title, body, footer: [h('button', { class: 'btn ghost', onclick: () => m.close() }, 'Cancel'), h('button', { class: 'btn primary', onclick: () => { if (onSave() === true) m.close(); } }, 'Save rule')] });
   return m;

@@ -10,11 +10,12 @@ import { barChart, progress } from '../charts.js';
 import { visibleAlerts } from '../notify.js';
 import { openMonthPicker } from '../components.js';
 import { catOf } from '../ctx.js';
+import { t, isRtl } from '../i18n.js';
 
-const greeting = () => { const hr = new Date().getHours(); return hr < 5 ? 'Good night' : hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening'; };
+const greeting = () => { const hr = new Date().getHours(); return t(hr < 5 ? 'Good night' : hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening'); };
 
 export function sectionHead(title, link, onLink) {
-  return h('div', { class: 'card-head' }, h('h2', null, title), link ? h('button', { class: 'link', onclick: onLink }, link + ' ›') : null);
+  return h('div', { class: 'card-head' }, h('h2', null, title), link ? h('button', { class: 'link', onclick: onLink }, t(link) + (isRtl() ? ' ‹' : ' ›')) : null);
 }
 
 export function alertList(list, { limit = 3, dismissable = true } = {}) {
@@ -22,23 +23,23 @@ export function alertList(list, { limit = 3, dismissable = true } = {}) {
     dismissable ? h('button', { class: 'icon-btn', style: { width: '28px', height: '28px' }, 'aria-label': 'Dismiss alert', onclick: () => store.dismissAlert(a.id, monthOf(today())) }, icon('close', 14)) : null)));
 }
 
-export function healthCard(st, t, { compact = false } = {}) {
-  const hl = financialHealth(st, t);
+export function healthCard(st, tdy, { compact = false } = {}) {
+  const hl = financialHealth(st, tdy);
   const color = hl.score >= 65 ? 'var(--good)' : hl.score >= 50 ? 'var(--warn)' : 'var(--bad)';
-  const ring = h('div', { class: 'score-ring', style: { '--p': hl.score, '--sc': color }, role: 'img', 'aria-label': `Financial health ${hl.score} out of 100, ${hl.label}` }, h('div', null, h('b', null, hl.score), h('small', null, '/ 100')));
-  const factors = hl.factors.map((f) => h('div', { class: 'factor' }, h('span', null, f.label), f.score == null ? h('span', { class: 'muted small' }, 'Not enough data') : progress(f.score, { color: f.score >= 65 ? 'var(--good)' : f.score >= 45 ? 'var(--warn)' : 'var(--bad)', label: f.label }), h('b', { style: { textAlign: 'right' } }, f.score == null ? '–' : f.score + '%'), compact ? null : h('span', { class: 'note' }, f.note)));
+  const ring = h('div', { class: 'score-ring', style: { '--p': hl.score, '--sc': color }, role: 'img', 'aria-label': t('Financial health {score} out of 100, {label}', { score: hl.score, label: t(hl.label) }) }, h('div', null, h('b', null, hl.score), h('small', null, '/ 100')));
+  const factors = hl.factors.map((f) => h('div', { class: 'factor' }, h('span', null, f.label), f.score == null ? h('span', { class: 'muted small' }, 'Not enough data') : progress(f.score, { color: f.score >= 65 ? 'var(--good)' : f.score >= 45 ? 'var(--warn)' : 'var(--bad)', label: f.label }), h('b', { style: { textAlign: 'end' } }, f.score == null ? '–' : f.score + '%'), compact ? null : h('span', { class: 'note' }, f.note)));
   return h('div', null, h('div', { class: 'score' }, ring, h('div', null, h('div', { style: { fontSize: '22px', fontWeight: 800, color } }, hl.label), h('div', { class: 'muted small' }, 'An informational score based on your savings, budget control, emergency fund, debt, recurring costs, overspending and income stability.'))),
     h('div', { style: { marginTop: '12px' } }, compact ? factors.slice(0, 4) : factors),
     h('p', { class: 'muted small', style: { marginTop: '10px' } }, 'This score is informational only and is not professional financial advice.'));
 }
 
 export function renderDashboard() {
-  const st = cs(), t = today(), ym = ui.ym, cur = isCurrent();
+  const st = cs(), tdy = today(), ym = ui.ym, cur = isCurrent();
   const s = monthSummary(st, ym);
-  const safe = cur ? safeToSpend(st, t) : null;
+  const safe = cur ? safeToSpend(st, tdy) : null;
   const mode = state().mode;
   const page = h('div', { class: 'page' });
-  page.append(h('div', { class: 'page-head' }, h('div', null, h('h1', null, `${greeting()}${state().profile.name ? ', ' + state().profile.name : ''}`), h('div', { class: 'sub' }, cur ? `${monthName(ym)} · ${date(t, { weekday: 'long', day: 'numeric', month: 'long' })}` : `Viewing ${monthName(ym)} (past month)`)), monthSwitcher()));
+  page.append(h('div', { class: 'page-head' }, h('div', null, h('h1', null, `${greeting()}${state().profile.name ? t(', ') + state().profile.name : ''}`), h('div', { class: 'sub' }, cur ? `${monthName(ym)} · ${date(tdy, { weekday: 'long', day: 'numeric', month: 'long' })}` : t('Viewing {month} (past month)', { month: monthName(ym) }))), monthSwitcher()));
 
   if (mode === 'demo') page.append(h('div', { class: 'banner', style: { marginBottom: '14px' } }, icon('info'), h('div', { class: 'grow' }, h('b', null, 'You are exploring demo data'), 'Nothing here is yours. Start with your own salary and all demo data is removed.'), h('button', { class: 'btn small primary', onclick: () => go('setup') }, 'Start with my data')));
   if (!cur) page.append(h('div', { class: 'banner', style: { marginBottom: '14px' } }, icon('history'), h('div', { class: 'grow' }, 'Past months keep the income and budgets they had at the time.'), h('button', { class: 'btn small', onclick: () => setMonth(curMonth()) }, 'Back to this month')));
@@ -49,16 +50,16 @@ export function renderDashboard() {
 
   /* stats */
   const heroCard = cur
-    ? statCard({ label: 'Safe to spend today', cls: 'hero', value: h('span', null, money(safe.safeDaily), h('small', { style: { fontSize: '.45em', fontWeight: 600 } }, ' /day')), valueCls: safe.availableRaw < 0 ? 'bad' : '', sub: safe.availableRaw < 0 ? `You are ${money(-safe.availableRaw)} past what is safe. Committed bills and savings come first.` : `${money(safe.available)} safe to spend · ${plural(safe.days, 'day', 'days')} until payday`, accent: 'var(--accent)' })
-    : statCard({ label: 'Savings rate', cls: 'hero', value: pct(s.savingsRate), valueCls: s.savingsRate < 0 ? 'bad' : '', sub: `${money(s.savings)} not spent`, accent: 'var(--accent)' });
+    ? statCard({ label: 'Safe to spend today', cls: 'hero', value: h('span', null, money(safe.safeDaily), h('small', { style: { fontSize: '.45em', fontWeight: 600 } }, ' /day')), valueCls: safe.availableRaw < 0 ? 'bad' : '', sub: safe.availableRaw < 0 ? t('You are {amount} past what is safe. Committed bills and savings come first.', { amount: money(-safe.availableRaw) }) : t('{amount} safe to spend · {days} until payday', { amount: money(safe.available), days: plural(safe.days, 'day', 'days') }), accent: 'var(--accent)' })
+    : statCard({ label: 'Savings rate', cls: 'hero', value: pct(s.savingsRate), valueCls: s.savingsRate < 0 ? 'bad' : '', sub: t('{amount} not spent', { amount: money(s.savings) }), accent: 'var(--accent)' });
   body.append(h('div', { class: 'stats' },
     statCard({ label: 'Total income', value: money(s.income), sub: 'Received this month', onClick: () => openIncomeModal(ym), accent: '#2aa6b8' }),
-    statCard({ label: 'Total spent', value: money(s.spent), sub: `${pct(s.spentPct)} of salary`, accent: '#eb6834', onClick: () => go('expenses') }),
+    statCard({ label: 'Total spent', value: money(s.spent), sub: t('{p} of salary', { p: pct(s.spentPct) }), accent: '#eb6834', onClick: () => go('expenses') }),
     statCard({ label: 'Remaining', value: money(s.remaining), valueCls: s.remaining < 0 ? 'bad' : '', sub: 'Income − spent', accent: s.remaining < 0 ? 'var(--bad)' : 'var(--good)' }),
-    statCard({ label: 'Saved', value: money(s.saved), sub: `${pct(s.savedPct)} moved to savings`, accent: '#3d9a3d', onClick: () => go('goals') }),
+    statCard({ label: 'Saved', value: money(s.saved), sub: t('{p} moved to savings', { p: pct(s.savedPct) }), accent: '#3d9a3d', onClick: () => go('goals') }),
     heroCard));
 
-  if (al.length) body.append(h('div', { class: 'card' }, sectionHead('Alerts', al.length > 3 ? `All ${al.length}` : null, () => go('insights')), alertList(al)));
+  if (al.length) body.append(h('div', { class: 'card' }, sectionHead('Alerts', al.length > 3 ? t('All {n}', { n: al.length }) : null, () => go('insights')), alertList(al)));
 
   /* five answers + where did it go */
   const spentCats = s.cats.filter((c) => c.cat.kind !== 'savings' && c.spent > 0).sort((a, b) => b.spent - a.spent);
@@ -85,22 +86,22 @@ export function renderDashboard() {
   /* budget categories (most used first) */
   const cats = [...s.cats].filter((c) => c.cat.kind !== 'savings' && (c.budget > 0 || c.spent > 0)).sort((a, b) => (b.usage === Infinity ? 1e9 : b.usage) - (a.usage === Infinity ? 1e9 : a.usage));
   const fixedVar = h('div', { class: 'grid cols-2', style: { gap: '10px', margin: '0 0 6px' } },
-    miniStat('Fixed', money(s.fixedSpent), h('div', { class: 'small muted' }, `of ${money(s.fixedBudget)} budgeted`)),
-    miniStat('Variable', money(s.variableSpent), h('div', { class: 'small muted' }, `of ${money(s.variableBudget)} budgeted · you can reduce this`)));
+    miniStat('Fixed', money(s.fixedSpent), h('div', { class: 'small muted' }, t('of {amount} budgeted', { amount: money(s.fixedBudget) }))),
+    miniStat('Variable', money(s.variableSpent), h('div', { class: 'small muted' }, t('of {amount} budgeted · you can reduce this', { amount: money(s.variableBudget) }))));
   body.append(h('div', { class: 'card' }, sectionHead('Budget categories', 'All', () => go('budget')), cats.length ? h('div', null, fixedVar, cats.slice(0, 6).map((c) => categoryRow(c))) : emptyState({ icon: '📊', title: 'No budgets yet', text: 'Create categories and give each a monthly budget.', action: h('button', { class: 'btn primary', onclick: () => { ui.tab.budget = 'plan'; go('budget'); } }, 'Set up budget') })));
 
   /* leaks + recurring */
   const two = h('div', { class: 'grid cols-2' });
-  two.append(leaksCard(st, ym), upcomingCard(st, t));
+  two.append(leaksCard(st, ym), upcomingCard(st, tdy));
   body.append(two);
 
   /* goals + health */
   const two2 = h('div', { class: 'grid cols-2' });
-  two2.append(goalsCard(st, t, ym), h('div', { class: 'card' }, sectionHead('Financial health', 'Details', () => go('insights')), healthCard(st, t, { compact: true })));
+  two2.append(goalsCard(st, tdy, ym), h('div', { class: 'card' }, sectionHead('Financial health', 'Details', () => go('insights')), healthCard(st, tdy, { compact: true })));
   body.append(two2);
 
   /* insights */
-  const ins = insights(st, t, ym);
+  const ins = insights(st, tdy, ym);
   body.append(h('div', { class: 'card' }, sectionHead('Insights', 'More', () => go('insights')), ins.length ? h('div', { class: 'stack', style: { gap: '8px' } }, ins.slice(0, 4).map(insightItem)) : h('p', { class: 'muted' }, 'Insights appear once you have a few expenses.')));
 
   /* monthly chart */
@@ -123,27 +124,27 @@ export function insightItem(i) {
 export function leaksCard(st, ym, { full = false } = {}) {
   const l = moneyLeaks(st, ym);
   const card = h('div', { class: 'card' }, sectionHead('Money leaks', full ? null : 'Details', () => go('insights')));
-  if (!l.count) { card.append(h('p', { class: 'muted' }, `No small purchases (≤ ${money(l.threshold)}) this month. Nice and tight.`)); return card; }
-  card.append(h('p', { class: 'muted small' }, `Small purchases (≤ ${money(l.threshold)}) this month:`), h('div', { style: { fontSize: '30px', fontWeight: 800, letterSpacing: '-.02em' } }, money(l.total)),
-    h('div', { class: 'banner warn', style: { margin: '10px 0' } }, icon('warn'), h('div', { class: 'grow' }, 'Potential annual cost: ', h('b', { style: { display: 'inline' } }, money(l.annual)), h('div', { class: 'small muted' }, `${plural(l.count, 'purchase', 'purchases')}, about ${money(l.average)} each`))),
+  if (!l.count) { card.append(h('p', { class: 'muted' }, t('No small purchases (≤ {amount}) this month. Nice and tight.', { amount: money(l.threshold) }))); return card; }
+  card.append(h('p', { class: 'muted small' }, t('Small purchases (≤ {amount}) this month:', { amount: money(l.threshold) })), h('div', { style: { fontSize: '30px', fontWeight: 800, letterSpacing: '-.02em' } }, money(l.total)),
+    h('div', { class: 'banner warn', style: { margin: '10px 0' } }, icon('warn'), h('div', { class: 'grow' }, 'Potential annual cost: ', h('b', { style: { display: 'inline' } }, money(l.annual)), h('div', { class: 'small muted' }, t('{n}, about {amount} each', { n: plural(l.count, 'purchase', 'purchases'), amount: money(l.average) })))),
     h('div', { class: 'list' }, l.groups.slice(0, full ? 12 : 4).map((g) => h('div', { class: 'item', style: { padding: '8px 0' } }, h('div', { class: 'grow' }, h('div', { class: 'title' }, g.name), h('div', { class: 'meta' }, `${g.count}×`)), h('div', { class: 'amt' }, money(g.total))))));
   return card;
 }
 
-function upcomingCard(st, t) {
-  const up = upcomingRecurring(st, t, addDays(t, 45)).slice(0, 5);
+function upcomingCard(st, tdy) {
+  const up = upcomingRecurring(st, tdy, addDays(tdy, 45)).slice(0, 5);
   const card = h('div', { class: 'card' }, sectionHead('Upcoming payments', 'Recurring', () => go('recurring')));
   if (!up.length) { card.append(h('p', { class: 'muted' }, st.recurring.length ? 'Nothing due in the next 45 days.' : 'No recurring payments yet. Add rent, phone, subscriptions…'), st.recurring.length ? null : h('button', { class: 'btn small', style: { marginTop: '10px' }, onclick: () => go('recurring') }, 'Add recurring')); return card; }
   card.append(h('div', { class: 'list' }, up.map((u) => { const c = catOf(u.categoryId); return h('div', { class: 'item' }, c ? avatar(c, 36) : null, h('div', { class: 'grow' }, h('div', { class: 'title' }, u.rec.name), h('div', { class: 'meta' }, date(u.date, { weekday: 'short', day: 'numeric', month: 'short' }))), h('div', { class: 'amt' }, money(u.amount))); })));
   return card;
 }
 
-function goalsCard(st, t, ym) {
+function goalsCard(st, tdy, ym) {
   const card = h('div', { class: 'card' }, sectionHead('Savings goals', 'All', () => go('goals')));
-  const goals = st.goals.map((g) => goalStatus(st, g, t));
+  const goals = st.goals.map((g) => goalStatus(st, g, tdy));
   const em = emergencyStatus(st, ym);
-  card.append(h('div', { style: { marginBottom: '12px' } }, h('div', { class: 'row spread' }, h('span', null, '🛟 Emergency fund'), h('b', null, `${em.coverage} months`)), progress(em.progress, { color: 'var(--good)', label: 'Emergency fund progress' }), h('div', { class: 'small muted' }, `${money(em.current)} of ${money(em.targetAmount)} target`)));
+  card.append(h('div', { style: { marginBottom: '12px' } }, h('div', { class: 'row spread' }, h('span', null, '🛟 Emergency fund'), h('b', null, t('{n} months', { n: em.coverage }))), progress(em.progress, { color: 'var(--good)', label: 'Emergency fund progress' }), h('div', { class: 'small muted' }, t('{a} of {b} target', { a: money(em.current), b: money(em.targetAmount) }))));
   if (!goals.length) card.append(h('p', { class: 'muted small' }, 'No goals yet.'), h('button', { class: 'btn small', style: { marginTop: '8px' }, onclick: () => go('goals') }, 'Create a goal'));
-  goals.slice(0, 3).forEach((g) => card.append(h('div', { style: { marginTop: '10px' } }, h('div', { class: 'row spread' }, h('span', null, `${g.goal.icon || '🎯'} ${g.goal.name}`), h('b', null, pct(g.progress))), progress(g.progress, { color: 'var(--accent)', label: g.goal.name }), h('div', { class: 'small muted' }, `${money(g.current)} of ${money(g.goal.target)}`))));
+  goals.slice(0, 3).forEach((g) => card.append(h('div', { style: { marginTop: '10px' } }, h('div', { class: 'row spread' }, h('span', null, `${g.goal.icon || '🎯'} ${g.goal.name}`), h('b', null, pct(g.progress))), progress(g.progress, { color: 'var(--accent)', label: g.goal.name }), h('div', { class: 'small muted' }, t('{a} of {b}', { a: money(g.current), b: money(g.goal.target) })))));
   return card;
 }

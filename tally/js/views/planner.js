@@ -3,6 +3,7 @@ import { ui, cs, state, money, pct, today, plural, rerender } from '../ctx.js';
 import { canAfford, whatIf, safeToSpend } from '../calc.js';
 import { parseMoney } from '../money.js';
 import { debounce } from '../ui.js';
+import { t } from '../i18n.js';
 
 export function renderPlanner() {
   const tab = ui.tab.planner || 'afford';
@@ -38,7 +39,7 @@ function afford() {
   amt.addEventListener('input', rd); cat.addEventListener('change', run);
   run();
   const safe = safeToSpend(cs(), today());
-  return h('div', { class: 'grid cols-2' }, h('div', { class: 'card' }, h('form', { onsubmit: (e) => e.preventDefault() }, amtF, field('Category (optional)', cat)), h('div', { class: 'small muted' }, `Right now: ${money(safe.available)} safe to spend · ${plural(safe.days, 'day', 'days')} until payday · ${money(safe.upcoming.reduce((a, u) => a + u.amount, 0))} of recurring payments still due.`)), h('div', { class: 'card' }, out));
+  return h('div', { class: 'grid cols-2' }, h('div', { class: 'card' }, h('form', { onsubmit: (e) => e.preventDefault() }, amtF, field('Category (optional)', cat)), h('div', { class: 'small muted' }, t('Right now: {amount} safe to spend · {days} until payday · {rec} of recurring payments still due.', { amount: money(safe.available), days: plural(safe.days, 'day', 'days'), rec: money(safe.upcoming.reduce((a, u) => a + u.amount, 0)) }))), h('div', { class: 'card' }, out));
 }
 const pair = (label, a, b) => h('div', { style: { padding: '10px 12px', borderRadius: '14px', background: 'var(--track)' } }, h('div', { class: 'small muted' }, label), h('div', { class: 'row', style: { gap: '6px', flexWrap: 'wrap' } }, h('b', null, a), h('span', { class: 'muted' }, '→'), h('b', null, b)));
 
@@ -63,8 +64,8 @@ function whatif() {
       row('Left this month', money(w.remainingNow), money(w.remainingAfter), w.remainingAfter < w.remainingNow),
       row('Safe per day', money(w.safeDailyNow), money(w.safeDailyAfter), w.safeDailyAfter < w.safeDailyNow),
       row('Savings rate', pct(w.savingsRateNow), pct(w.savingsRateAfter), w.savingsRateAfter < w.savingsRateNow)),
-    h('div', { style: { marginTop: '14px' } }, w.planReduction > 0 ? h('div', { class: 'banner warn' }, icon('warn', 18), h('div', { class: 'grow' }, h('b', null, `Savings reduced by ${money(w.planReduction)}`), w.goalDelays.length ? w.goalDelays.map((d) => h('div', null, `${d.goal.icon || '🎯'} ${d.goal.name}: delayed by about +${plural(d.days, 'day', 'days')}`)) : 'No savings goal has a monthly contribution, so no goal is delayed.')) : h('div', { class: 'banner good' }, icon('check', 18), h('div', { class: 'grow' }, 'No savings goal is delayed: this fits inside your safe-to-spend money.'))),
-    monthly ? h('div', { class: 'banner', style: { marginTop: '10px' } }, icon('recurring', 18), h('div', { class: 'grow' }, h('b', null, `${money(w.monthlyImpact)} every month`), `That is ${money(w.annual)} over a year.`)) : null);
+    h('div', { style: { marginTop: '14px' } }, w.planReduction > 0 ? h('div', { class: 'banner warn' }, icon('warn', 18), h('div', { class: 'grow' }, h('b', null, t('Savings reduced by {amount}', { amount: money(w.planReduction) })), w.goalDelays.length ? w.goalDelays.map((d) => h('div', null, t('{name}: delayed by about +{n}', { name: `${d.goal.icon || '🎯'} ${d.goal.name}`, n: plural(d.days, 'day', 'days') }))) : 'No savings goal has a monthly contribution, so no goal is delayed.')) : h('div', { class: 'banner good' }, icon('check', 18), h('div', { class: 'grow' }, 'No savings goal is delayed: this fits inside your safe-to-spend money.'))),
+    monthly ? h('div', { class: 'banner', style: { marginTop: '10px' } }, icon('recurring', 18), h('div', { class: 'grow' }, h('b', null, t('{amount} every month', { amount: money(w.monthlyImpact) })), t('That is {amount} over a year.', { amount: money(w.annual) }))) : null);
   };
   amt.addEventListener('input', debounce(run, 120));
   run();

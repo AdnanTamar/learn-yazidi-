@@ -1,6 +1,7 @@
 // Shared UI context: current route/month, formatters and navigation helpers.
 import * as store from './store.js';
 import { cleanLocale } from './money.js';
+import { effectiveLocale } from './i18n.js';
 import { todayStr, monthOf, fmtDate, fmtMonth, addMonths } from './dates.js';
 
 export const ui = { ym: monthOf(todayStr()), tab: {}, lastCategory: null, lastMethod: 'Debit card', expenseFilter: { q: '', cat: '', method: '', type: '' }, shown: 80 };
@@ -12,7 +13,7 @@ export const cs = () => store.calcState();
 let moneyOverride = null;
 export const setMoneyOverride = (f) => { moneyOverride = f; };
 export const money = (c, opts) => (moneyOverride ? moneyOverride(c, opts) : store.money(c, opts));
-export const locale = () => cleanLocale(state().profile.locale);
+export const locale = () => cleanLocale(effectiveLocale(state().profile.locale));
 export const date = (d, opts) => fmtDate(d, locale(), opts);
 export const monthName = (ym, opts) => fmtMonth(ym, locale(), opts);
 export const pct = (n) => `${n % 1 === 0 ? n : n.toFixed(1)}%`;
@@ -28,4 +29,4 @@ export function setMonth(ym) {
 }
 export const shiftMonth = (n) => setMonth(addMonths(ui.ym, n));
 export const catOf = (id) => state().categories.find((c) => c.id === id);
-export const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+export { plural } from './i18n.js';
