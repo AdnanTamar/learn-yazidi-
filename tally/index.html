@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#e9eefb">
+  <meta name="description" content="Tally: a private, local-first salary and budget planner that shows where your money went and what you can safely spend today.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <title>Tally · Where did my money go?</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script>try{var t=localStorage.getItem('tally.theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <div id="app" aria-busy="true">
+    <div class="page" role="status" aria-label="Loading">
+      <div class="skeleton" style="height:48px;width:55%;margin-bottom:16px"></div>
+      <div class="stats"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
+    </div>
+  </div>
+  <noscript><p style="padding:24px;font-family:system-ui">Tally needs JavaScript to run. Your data never leaves your device.</p></noscript>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

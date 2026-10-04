@@ -1,0 +1,11 @@
+{
+  "name": "tally",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Tally - local-first personal finance & salary planner (vanilla JS, no build step).",
+  "scripts": {
+    "start": "python3 -m http.server 8080",
+    "test": "node --test tests/*.test.mjs"
+  }
+}
