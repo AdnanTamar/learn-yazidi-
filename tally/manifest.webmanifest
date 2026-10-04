@@ -1,0 +1,10 @@
+{
+  "name": "Tally — where did my money go?",
+  "short_name": "Tally",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#e9eefb",
+  "theme_color": "#e9eefb",
+  "description": "Private, local-first salary and budget planner.",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
